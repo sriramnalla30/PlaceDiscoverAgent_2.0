@@ -1,7 +1,8 @@
 [build]
   base = "/"
   publish = "frontend"
-  command = "echo 'Static frontend deployment - no build needed'"
+  # No build command - static files only
+  ignore = "git diff --quiet HEAD^ HEAD requirements.txt app/"
 
 # Redirect all routes to index.html for single-page app behavior
 [[redirects]]

@@ -478,6 +478,7 @@ async def stream_agent(thread_id: str):
                     complete_data = json.dumps({
                         "type": "complete",
                         "recommendations": state_snapshot.values.get("recommendations", []),
+                        "all_places": state_snapshot.values.get("serp_results", []),
                         "iteration": state_snapshot.values.get("iteration", 0)
                     })
                     yield f"data: {complete_data}\n\n"
@@ -600,6 +601,7 @@ async def stream_agent(thread_id: str):
                     complete_data = json.dumps({
                         "type": "complete",
                         "recommendations": current_state.values.get("recommendations", []),
+                        "all_places": current_state.values.get("serp_results", []),
                         "iteration": current_state.values.get("iteration", 0)
                     })
                     yield f"data: {complete_data}\n\n"

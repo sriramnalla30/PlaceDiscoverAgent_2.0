@@ -517,6 +517,131 @@
             font-weight: 700;
         }
 
+        /* All Places Found Container */
+        .all-places-container {
+            background: var(--card-bg);
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 8px 8px 0px rgba(52, 152, 219, 0.15);
+        }
+
+        .all-places-container h2 {
+            color: var(--ink-primary);
+            margin-bottom: 20px;
+            font-family: 'Architects Daughter', cursive;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .all-places-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .place-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 18px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .place-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            border-color: var(--accent-blue);
+        }
+
+        .place-card h4 {
+            color: var(--ink-primary);
+            margin-bottom: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .place-card .place-rating {
+            background: var(--accent-orange);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .place-card .place-info {
+            font-size: 13px;
+            color: var(--ink-secondary);
+            margin-bottom: 15px;
+        }
+
+        .place-card .place-info p {
+            margin: 6px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .place-card .place-info p span.icon {
+            flex-shrink: 0;
+        }
+
+        .place-card .place-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .place-card .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .place-card .action-btn.maps-btn {
+            background: #4285F4;
+            color: #fff;
+        }
+
+        .place-card .action-btn.maps-btn:hover {
+            background: #3367D6;
+            transform: scale(1.05);
+        }
+
+        .place-card .action-btn.call-btn {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .place-card .action-btn.call-btn:hover {
+            background: #219a52;
+            transform: scale(1.05);
+        }
+
+        .place-card .action-btn.website-btn {
+            background: var(--ink-primary);
+            color: #fff;
+        }
+
+        .place-card .action-btn.website-btn:hover {
+            background: var(--accent-blue);
+            transform: scale(1.05);
+        }
+
         /* --- Updated Animations for Light Theme --- */
 
         /* Thinking Indicator (Bubbles) */
@@ -775,6 +900,12 @@
             </div>
         </div>
 
+        <!-- All Places Found Box -->
+        <div class="all-places-container" id="allPlacesContainer" style="display: none;">
+            <h2>📍 All Places Found</h2>
+            <div class="all-places-grid" id="allPlacesGrid"></div>
+        </div>
+
         <!-- Results -->
         <div class="results-container" id="resultsContainer" style="display: none;">
             <h2>🎉 Best Options Secured</h2>
@@ -956,6 +1087,13 @@
                 alert('Please enter your search query');
                 return;
             }
+
+            // Reset previous results
+            document.getElementById('allPlacesContainer').style.display = 'none';
+            document.getElementById('allPlacesGrid').innerHTML = '';
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('resultsContent').innerHTML = '';
+            document.getElementById('logContainer').innerHTML = '';
 
             document.getElementById('workflowContainer').style.display = 'block';
             document.getElementById('searchCard').style.display = 'none';
@@ -1180,6 +1318,10 @@
 
                 case 'complete':
                     updateStep(6);
+                    // Show all places first, then the winner
+                    if (data.all_places && data.all_places.length > 0) {
+                        showAllPlaces(data.all_places);
+                    }
                     showResults(data.recommendations);
                     break;
 
@@ -1237,6 +1379,69 @@
             addLog('warning', '❌ Negotiation Cancelled by User');
             document.getElementById('hitlPanel').classList.remove('active');
             if(eventSource) eventSource.close();
+        }
+
+        function showAllPlaces(places) {
+            const container = document.getElementById('allPlacesContainer');
+            const grid = document.getElementById('allPlacesGrid');
+            
+            if (!places || places.length === 0) {
+                return; // Don't show if no places
+            }
+            
+            container.style.display = 'block';
+            
+            grid.innerHTML = places.map((place, index) => {
+                const name = place.name || 'Unknown Place';
+                const address = place.address || '';
+                const phone = place.phone || '';
+                const rating = place.rating || 'N/A';
+                const website = place.website || place.link || '';
+                const priceLevel = place.price_level || '';
+                const types = place.type || place.types || '';
+                
+                // Build action buttons
+                let actionsHTML = '';
+                
+                // Google Maps button (always show if address exists)
+                if (address) {
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' ' + address)}`;
+                    actionsHTML += `<a href="${mapsUrl}" target="_blank" class="action-btn maps-btn">📍 Open Maps</a>`;
+                }
+                
+                // Phone call button
+                if (phone) {
+                    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+                    actionsHTML += `<a href="tel:${cleanPhone}" class="action-btn call-btn">📞 Call</a>`;
+                }
+                
+                // Website button
+                if (website) {
+                    actionsHTML += `<a href="${website}" target="_blank" class="action-btn website-btn">🌐 Website</a>`;
+                }
+                
+                return `
+                    <div class="place-card">
+                        <h4>
+                            <span>${index + 1}. ${name}</span>
+                            ${rating !== 'N/A' ? `<span class="place-rating">⭐ ${rating}</span>` : ''}
+                        </h4>
+                        <div class="place-info">
+                            ${address ? `<p><span class="icon">📍</span> ${address}</p>` : ''}
+                            ${phone ? `<p><span class="icon">📞</span> ${phone}</p>` : ''}
+                            ${priceLevel ? `<p><span class="icon">💰</span> ${priceLevel}</p>` : ''}
+                            ${types ? `<p><span class="icon">🏷️</span> ${types}</p>` : ''}
+                        </div>
+                        <div class="place-actions">
+                            ${actionsHTML}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Scroll to show all places first
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            addLog('info', `📍 Showing all ${places.length} places found`);
         }
 
         function showResults(recommendations) {

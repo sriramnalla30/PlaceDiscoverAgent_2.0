@@ -209,12 +209,19 @@ async def simple_best_reviewed_node(state: AgentState) -> dict:
         logger.info(f"📋 Showing ALL {len(sorted_places)} results (user wants complete list)")
         
         # Return all results sorted by rating
-        result_text = f"✅ **ALL GYMS IN YOUR AREA** (Sorted by Rating):\n\n"
+        result_text = f"✅ **ALL PLACES IN YOUR AREA** (Sorted by Rating):\n\n"
         
         for idx, place in enumerate(sorted_places, 1):
+            reviews_count = place.get('reviews_count', 0)
+            # Safely convert to int for formatting
+            try:
+                reviews_count = int(reviews_count) if reviews_count else 0
+            except (ValueError, TypeError):
+                reviews_count = 0
+            
             result_text += f"""
 **{idx}. {place.get('name', 'Unknown')}**
-⭐ Rating: {place.get('rating', 'N/A')}/5.0 ({place.get('reviews_count', 0):,} reviews)
+⭐ Rating: {place.get('rating', 'N/A')}/5.0 ({reviews_count:,} reviews)
 📍 Address: {place.get('address', 'N/A')}
 📞 Phone: {place.get('phone', 'Not available')}
 ---

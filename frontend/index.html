@@ -918,14 +918,14 @@
         // Replaced Matrix characters with context-aware icons for the "Place Discover" theme
         function createMatrixRain() {
             const matrixContainer = document.getElementById('matrixRain');
-            // Using emojis relevant to place discovery and negotiation
-            const chars = '📍🏢🏠🏦🏥🕍🎓☕🍔🏋️‍♂️🤝💰🔍✅📝📞📧📊🗺️🚶‍♂️🚕'; 
+            // Using simple single-codepoint emojis to avoid encoding issues
+            const emojiList = ['📍', '🏢', '🏠', '🏦', '🏥', '🎓', '☕', '🍔', '🤝', '💰', '🔍', '✅', '📝', '📞', '📧', '📊', '🚕', '⭐', '🎯', '💼'];
             const columns = Math.floor(window.innerWidth / 40); // Wider spacing for icons
             
             for (let i = 0; i < columns; i++) {
                 const char = document.createElement('div');
                 char.className = 'matrix-char';
-                char.textContent = chars[Math.floor(Math.random() * chars.length)];
+                char.textContent = emojiList[Math.floor(Math.random() * emojiList.length)];
                 char.style.left = i * 40 + 'px';
                 // Varied speeds for a floating effect
                 char.style.animationDuration = (Math.random() * 15 + 10) + 's'; 

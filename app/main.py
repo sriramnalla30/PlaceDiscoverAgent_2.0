@@ -11,7 +11,10 @@ from app.models import (
     HumanApprovalRequest,
     AgentResponse,
     PlaceType,
-    InitialQueryRequest
+    AgentResponse,
+    PlaceType,
+    InitialQueryRequest,
+    NegotiationStartRequest
 )
 from app.agent.graph import negotiator_agent, get_thread_config, visualize_graph
 from app.agent.tools import search_places
@@ -19,10 +22,13 @@ from app.config import settings
 import uuid
 import json
 import logging
+import re
 
 # Configure logging
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger(__name__)
+
+from fastapi.staticfiles import StaticFiles
 
 # ==========================================
 # INITIALIZE FASTAPI
@@ -33,6 +39,10 @@ app = FastAPI(
     description="AI Agent for place discovery and negotiation with HITL support",
     version="1.0.0"
 )
+
+# Mount static files
+app.mount("/app/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 # CORS middleware for frontend
 app.add_middleware(
@@ -310,6 +320,10 @@ async def activate_agent(request: AgentActivationRequest):
 # ENDPOINT 3: HUMAN APPROVAL (HITL)
 # ==========================================
 
+# ==========================================
+# ENDPOINT 3: HUMAN APPROVAL (HITL)
+# ==========================================
+
 @app.post("/agent/approve", response_model=AgentResponse)
 async def approve_and_continue(request: HumanApprovalRequest):
     """
@@ -319,59 +333,665 @@ async def approve_and_continue(request: HumanApprovalRequest):
     Resumes graph execution after interrupt.
     """
     try:
-        logger.info(f"HITL approval for thread: {request.thread_id}")
+        logger.info("="*60)
+        logger.info("✅ HITL APPROVAL RECEIVED")
+        logger.info(f"   Thread: {request.thread_id}")
+        logger.info(f"   Approved: {request.approved}")
+        logger.info(f"   Edited Message: {request.edited_message}")
+        logger.info("="*60)
         
         config = get_thread_config(request.thread_id)
         
         # Get current state
-        current_state = negotiator_agent.get_state(config)
+        current_state = await negotiator_agent.aget_state(config)
         
         if not current_state:
+            logger.error("Thread not found!")
             raise HTTPException(status_code=404, detail="Thread not found")
         
-        # Prepare resume input
-        resume_input = None
+        logger.info(f"   Current Step: {current_state.values.get('current_step')}")
+        logger.info(f"   Next Node: {current_state.next}")
         
         if request.approved:
-            # User approved, continue with existing data
-            resume_input = {
+            # User approved - update state with approval
+            logger.info("📝 Updating state with human_approved=True")
+            
+            update_state = {
                 "human_approved": True,
                 "human_notes": request.user_notes
             }
             
-            # If user modified results, update them
-            if request.modified_results:
-                resume_input["serp_results"] = [
-                    result.model_dump() for result in request.modified_results
-                ]
+            # If user edited negotiation message, use that
+            if request.edited_message:
+                update_state["planned_message"] = request.edited_message
+                logger.info(f"   Using edited message: {request.edited_message}")
+            
+            # Update state first
+            await negotiator_agent.aupdate_state(config, update_state)
+            
+            # Now invoke to continue from human_review node
+            logger.info("▶️ Resuming graph execution...")
+            state = await negotiator_agent.ainvoke(None, config)
+            
+            logger.info(f"   After invoke - Current Step: {state.get('current_step')}")
+            logger.info(f"   Negotiation Status: {state.get('negotiation_status')}")
+                
         else:
-            # User rejected, return error
+            # User rejected
+            logger.info("❌ User rejected negotiation")
             return AgentResponse(
-                message="Analysis cancelled by user",
+                message="Negotiation cancelled by user",
                 thread_id=request.thread_id,
                 is_complete=True
             )
         
-        # Resume execution
-        state = await negotiator_agent.ainvoke(resume_input, config)
+        # Check current state after execution
+        final_state = await negotiator_agent.aget_state(config)
+        is_complete = final_state.values.get("is_complete", False)
+        last_message = final_state.values.get("messages", [])[-1].content if final_state.values.get("messages") else "Processing..."
+        negotiation_status = final_state.values.get("negotiation_status", "")
         
-        # Get recommendations if complete
-        is_complete = state.get("is_complete", False)
-        last_message = state["messages"][-1].content if state["messages"] else "Processing..."
+        logger.info(f"   Final Status: {negotiation_status}")
+        logger.info(f"   Is Complete: {is_complete}")
+        
+        # Check if waiting for reply
+        requires_approval = False
+        if final_state.next and "human_review" in final_state.next:
+            requires_approval = True
+            logger.info("⏸️ Paused at human_review again - next turn")
         
         return AgentResponse(
             message=last_message,
             thread_id=request.thread_id,
             data={
-                "recommendations": state.get("recommendations"),
-                "current_step": state.get("current_step")
+                "recommendations": final_state.values.get("recommendations"),
+                "current_step": final_state.values.get("current_step"),
+                "negotiation_status": negotiation_status,
+                "planned_message": final_state.values.get("planned_message")
             },
-            requires_approval=False,
-            is_complete=is_complete
+            requires_approval=requires_approval,
+            is_complete=is_complete or negotiation_status == "end"
         )
     
     except Exception as e:
-        logger.error(f"Approval error: {str(e)}")
+        logger.error(f"❌ Approval error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# ENDPOINT: CHECK FOR REPLY (Chat Interface Polling)
+# ==========================================
+
+@app.get("/agent/check-reply")
+async def check_for_reply(thread_id: str):
+    """
+    Poll endpoint for checking if shopkeeper replied.
+    Called by the chat interface every 10 seconds.
+    
+    CRITICAL FILTERING:
+    1. Only messages FROM the salesperson's phone (9391060967 - your phone)
+    2. Only messages AFTER the negotiation started
+    3. Messages must be numeric phone numbers (filters out "JD-EKARTL-S", "AD-ICICIT-S", etc.)
+    """
+    try:
+        from app.messaging.service import get_messaging_service
+        import time
+        
+        logger.info(f"🔍 Checking for replies - Thread: {thread_id}")
+        
+        config = get_thread_config(thread_id)
+        current_state = await negotiator_agent.aget_state(config)
+        
+        if not current_state:
+            return {"has_reply": False, "status": "thread_not_found"}
+        
+        # Get the SALESPERSON'S phone number (your phone - where SMS was sent TO)
+        # This is stored in settings.twilio_target_number
+        salesperson_phone = settings.twilio_target_number.replace("+91", "").replace("+", "").replace(" ", "").replace("-", "")
+        logger.info(f"📞 Salesperson phone (your phone): {salesperson_phone}")
+        
+        # Get negotiation start time from state (to filter old messages)
+        negotiation_start_time = current_state.values.get("negotiation_start_time")
+        if not negotiation_start_time:
+            # Set it now if not set
+            negotiation_start_time = int(time.time())
+            await negotiator_agent.aupdate_state(config, {
+                "negotiation_start_time": negotiation_start_time
+            })
+        
+        logger.info(f"⏰ Negotiation started at: {negotiation_start_time}")
+        
+        # Get target place name for display
+        recommendations = current_state.values.get("recommendations", [])
+        target_place_name = recommendations[0].get("name", "Shopkeeper") if recommendations else "Shopkeeper"
+        
+        # Get messaging service and fetch messages
+        messaging = get_messaging_service()
+        all_messages = messaging.get_messages()
+        
+        logger.info(f"📬 Found {len(all_messages)} total messages in inbox")
+        
+        # Get negotiation history from state
+        history = current_state.values.get("negotiation_history", [])
+        
+        # Filter messages - ONLY from the salesperson's phone AND after negotiation started
+        new_replies = []
+        for sms in all_messages:
+            # SMSMobileAPI returns 'number' field (e.g., "919391060967" or "JD-EKARTL-S")
+            sms_number = str(sms.get("number", ""))
+            sms_text = sms.get("message", "") or sms.get("body", "") or sms.get("text", "")
+            sms_timestamp = sms.get("timestamp_unix", "0")
+            sms_date = sms.get("date", "")
+            sms_hour = sms.get("hour", "")
+            
+            # FILTER 1: Must be from a NUMERIC phone number (filters out "JD-EKARTL-S", "AD-ICICIT-S", etc.)
+            # Real phone numbers are numeric, spam/service messages have alphanumeric senders
+            clean_number = sms_number.replace("+", "").replace("-", "").replace(" ", "")
+            if not clean_number.isdigit():
+                continue  # Skip - not a real phone number (it's a service like Ekart, ICICI, etc.)
+            
+            # FILTER 2: Must be from the salesperson's phone number
+            if salesperson_phone not in clean_number and clean_number not in salesperson_phone:
+                continue  # Skip - not from the salesperson
+            
+            # FILTER 3: Must be AFTER the negotiation started
+            try:
+                msg_time = int(sms_timestamp) if sms_timestamp else 0
+                if msg_time > 0 and msg_time < negotiation_start_time:
+                    logger.info(f"⏭️ Skipping old message (before negotiation): {sms_text[:30]}...")
+                    continue  # Skip - this message is from before the negotiation started
+            except:
+                pass  # If timestamp parsing fails, include the message
+            
+            logger.info(f"✅ Valid reply from salesperson: {sms_text[:50]}...")
+            
+            # Check if we've already processed this message
+            already_in_history = any(
+                h.get("content") == sms_text and h.get("role") == "shopkeeper"
+                for h in history
+            )
+            
+            if not already_in_history and sms_text:
+                new_replies.append({
+                    "text": sms_text,
+                    "from": sms_number,
+                    "time": f"{sms_date} {sms_hour}" if sms_date else sms_timestamp
+                })
+        
+        if new_replies:
+            # Found new reply from the salesperson!
+            latest_reply = new_replies[0]
+            logger.info(f"📩 NEW REPLY from salesperson: {latest_reply['text']}")
+            
+            # Update negotiation history with shopkeeper's reply
+            new_history = history + [{
+                "role": "shopkeeper",
+                "content": latest_reply["text"],
+                "timestamp": latest_reply["time"]
+            }]
+            
+            await negotiator_agent.aupdate_state(config, {
+                "negotiation_history": new_history,
+                "negotiation_status": "ongoing"  # Reset to ongoing so agent can continue
+            })
+            
+            # Generate agent's counter-offer using LLM
+            agent_response = await generate_negotiation_response(
+                thread_id=thread_id,
+                shopkeeper_reply=latest_reply["text"],
+                history=new_history,
+                current_state=current_state
+            )
+            
+            return {
+                "has_reply": True,
+                "reply_text": latest_reply["text"],
+                "reply_time": latest_reply["time"],
+                "from_phone": latest_reply["from"],
+                "status": "reply_received",
+                "agent_response": agent_response.get("message"),
+                "thought_process": agent_response.get("thought")
+            }
+        
+        return {
+            "has_reply": False,
+            "status": "waiting",
+            "message": f"Waiting for reply from salesperson ({salesperson_phone})"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Check reply error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"has_reply": False, "status": "error", "error": str(e)}
+
+
+# ==========================================
+# HELPER: Generate Negotiation Response
+# ==========================================
+
+async def generate_negotiation_response(thread_id: str, shopkeeper_reply: str, history: list, current_state) -> dict:
+    """
+    Use LLM to generate a smart negotiation counter-offer based on shopkeeper's reply.
+    """
+    try:
+        from langchain_groq import ChatGroq
+        from pydantic import BaseModel, Field
+        
+        # Get context from state
+        target_price = current_state.values.get("target_price", 3000)
+        user_goal = current_state.values.get("user_intent", "Get the best price")
+        recommendations = current_state.values.get("recommendations", [])
+        place_name = recommendations[0].get("name", "the place") if recommendations else "the place"
+        
+        # Build conversation history for context
+        conversation = "\n".join([
+            f"{'Agent' if h['role'] == 'agent' else 'Shopkeeper'}: {h['content']}"
+            for h in history
+        ])
+        
+        class NegotiationResponse(BaseModel):
+            """Negotiation response"""
+            message: str = Field(description="The counter-offer or response message to send")
+            thought: str = Field(description="Brief explanation of the negotiation strategy")
+            should_accept: bool = Field(description="True if the offer is acceptable and we should accept")
+            should_reject: bool = Field(description="True if negotiation should end without deal")
+        
+        llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            temperature=0.7,
+            api_key=settings.groq_api_key
+        )
+        
+        structured_llm = llm.with_structured_output(NegotiationResponse)
+        
+        prompt = f"""You are a skilled negotiator helping a customer get the best price.
+
+CONTEXT:
+- Place: {place_name}
+- Customer's Target Price: ₹{target_price}/month
+- Customer's Goal: {user_goal}
+
+CONVERSATION SO FAR:
+{conversation}
+
+SHOPKEEPER'S LATEST REPLY: "{shopkeeper_reply}"
+
+YOUR TASK:
+1. Analyze the shopkeeper's response
+2. Decide if we should:
+   - Accept (if price is at or below target)
+   - Counter-offer (if there's room for negotiation)
+   - Politely decline (if price is too far from target and shopkeeper won't budge)
+
+3. Generate a short, polite, and persuasive response (1-2 sentences max)
+
+GUIDELINES:
+- Be polite but firm
+- If shopkeeper offers close to target (within 500), consider accepting
+- If shopkeeper is firm, try one more counter before accepting/declining
+- Keep messages SHORT and conversational (like real SMS)
+- Don't be too pushy - 2-3 counter-offers max
+
+Generate the next message to send."""
+
+        logger.info("🧠 Generating negotiation counter-offer...")
+        response = structured_llm.invoke(prompt)
+        
+        logger.info(f"📝 Agent response: {response.message}")
+        logger.info(f"💭 Thought: {response.thought}")
+        logger.info(f"✅ Should accept: {response.should_accept}")
+        
+        return {
+            "message": response.message,
+            "thought": response.thought,
+            "should_accept": response.should_accept,
+            "should_reject": response.should_reject
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error generating negotiation response: {str(e)}")
+        return {
+            "message": "Can you do any better on the price?",
+            "thought": "Fallback response due to error",
+            "should_accept": False,
+            "should_reject": False
+        }
+
+
+# ==========================================
+# ENDPOINT: SEND MANUAL MESSAGE (User types in chat)
+# ==========================================
+
+@app.post("/agent/send-manual")
+async def send_manual_message(request: dict):
+    """
+    Send a manual message typed by user in chat interface.
+    Bypasses the agent strategy - direct user control.
+    """
+    try:
+        from app.messaging.service import get_messaging_service
+        
+        thread_id = request.get("thread_id")
+        message = request.get("message")
+        
+        if not thread_id or not message:
+            raise HTTPException(status_code=400, detail="thread_id and message required")
+        
+        logger.info(f"📤 MANUAL MESSAGE from user")
+        logger.info(f"   Thread: {thread_id}")
+        logger.info(f"   Message: {message}")
+        
+        config = get_thread_config(thread_id)
+        current_state = await negotiator_agent.aget_state(config)
+        
+        if not current_state:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Resolve target phone: prefer place phone from state, fallback to configured default
+        state_values = current_state.values if hasattr(current_state, "values") else {}
+
+        def normalize_phone(num: str) -> str:
+            if not num:
+                return ""
+            num = num.strip()
+            if num.startswith("+"):
+                return "+" + re.sub(r"[^0-9]", "", num)
+            return re.sub(r"[^0-9]", "", num)
+
+        recs = state_values.get("recommendations") or state_values.get("serp_results") or []
+        place_phone = recs[0].get("phone") if recs and isinstance(recs[0], dict) else ""
+        target_number = (
+            normalize_phone(place_phone)
+            or normalize_phone(settings.default_target_number)
+            or normalize_phone(settings.twilio_target_number)
+        )
+
+        if not target_number:
+            raise HTTPException(status_code=400, detail="No target phone available to send SMS")
+
+        messaging = get_messaging_service()
+        
+        success = messaging.send_message(to=target_number, message=message)
+        
+        if success:
+            logger.info(f"✅ Manual message sent to {target_number}")
+            
+            # Update negotiation history
+            history = current_state.values.get("negotiation_history", [])
+            history.append({
+                "role": "agent",
+                "content": message,
+                "timestamp": str(uuid.uuid4())[:8]  # Simple timestamp
+            })
+            
+            await negotiator_agent.aupdate_state(config, {
+                "negotiation_history": history
+            })
+            
+            return {"success": True, "message": "Message sent"}
+        else:
+            logger.error("❌ Failed to send manual message")
+            return {"success": False, "message": "Failed to send"}
+            
+    except Exception as e:
+        logger.error(f"❌ Send manual error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# ENDPOINT: SEND CHAT CONTINUATION MESSAGE (Agent suggested response)
+# ==========================================
+
+@app.post("/agent/send-chat")
+async def send_chat_message(request: dict):
+    """
+    Send an agent-suggested chat message (for negotiation continuation).
+    Called when user approves the agent's suggested response.
+    
+    This is different from /agent/approve - it doesn't invoke the graph.
+    It directly sends the SMS and updates negotiation history.
+    """
+    try:
+        from app.messaging.service import get_messaging_service
+        import time
+        
+        thread_id = request.get("thread_id")
+        message = request.get("message")
+        
+        if not thread_id or not message:
+            raise HTTPException(status_code=400, detail="thread_id and message required")
+        
+        logger.info("="*60)
+        logger.info("📤 CHAT CONTINUATION MESSAGE")
+        logger.info(f"   Thread: {thread_id}")
+        logger.info(f"   Message: {message}")
+        logger.info("="*60)
+        
+        config = get_thread_config(thread_id)
+        current_state = await negotiator_agent.aget_state(config)
+        
+        if not current_state:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Resolve target phone: prefer place phone from state, fallback to configured default
+        state_values = current_state.values if hasattr(current_state, "values") else {}
+
+        def normalize_phone(num: str) -> str:
+            if not num:
+                return ""
+            num = num.strip()
+            if num.startswith("+"):
+                return "+" + re.sub(r"[^0-9]", "", num)
+            return re.sub(r"[^0-9]", "", num)
+
+        recs = state_values.get("recommendations") or state_values.get("serp_results") or []
+        place_phone = recs[0].get("phone") if recs and isinstance(recs[0], dict) else ""
+        target_number = (
+            normalize_phone(place_phone)
+            or normalize_phone(settings.default_target_number)
+            or normalize_phone(settings.twilio_target_number)
+        )
+
+        if not target_number:
+            raise HTTPException(status_code=400, detail="No target phone available to send SMS")
+
+        # Send SMS
+        messaging = get_messaging_service()
+        
+        logger.info(f"📱 Sending SMS to {target_number}...")
+        success = messaging.send_message(to=target_number, message=message)
+        
+        if success:
+            logger.info(f"✅ Chat message sent to {target_number}")
+            
+            # Update negotiation history with agent's message
+            history = current_state.values.get("negotiation_history", [])
+            history.append({
+                "role": "agent",
+                "content": message,
+                "timestamp": str(int(time.time()))
+            })
+            
+            await negotiator_agent.aupdate_state(config, {
+                "negotiation_history": history,
+                "negotiation_status": "ongoing"
+            })
+            
+            return {
+                "success": True, 
+                "message": "Message sent",
+                "sent_message": message
+            }
+        else:
+            logger.error("❌ Failed to send chat message")
+            return {"success": False, "message": "Failed to send SMS"}
+            
+    except Exception as e:
+        logger.error(f"❌ Send chat error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# ENDPOINT: TERMINATE NEGOTIATION
+# ==========================================
+
+@app.post("/agent/terminate")
+async def terminate_negotiation(request: dict):
+    """
+    Terminate an ongoing negotiation.
+    Called when user clicks the 'End' button in chat interface.
+    """
+    try:
+        thread_id = request.get("thread_id")
+        
+        if not thread_id:
+            raise HTTPException(status_code=400, detail="thread_id required")
+        
+        logger.info("="*60)
+        logger.info("🛑 NEGOTIATION TERMINATED BY USER")
+        logger.info(f"   Thread: {thread_id}")
+        logger.info("="*60)
+        
+        config = get_thread_config(thread_id)
+        current_state = await negotiator_agent.aget_state(config)
+        
+        if not current_state:
+            return {"success": True, "message": "Thread not found (already terminated)"}
+        
+        # Update state to mark negotiation as ended
+        await negotiator_agent.aupdate_state(config, {
+            "negotiation_active": False,
+            "negotiation_status": "terminated",
+            "is_complete": True
+        })
+        
+        logger.info("✅ Negotiation state updated to terminated")
+        
+        return {
+            "success": True,
+            "message": "Negotiation terminated successfully",
+            "status": "terminated"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Terminate error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"success": False, "message": str(e)}
+
+
+# ==========================================
+# ENDPOINT 8: START NEGOTIATION (User clicked NEGOTIATE button)
+# ==========================================
+
+@app.post("/agent/negotiate/start", response_model=AgentResponse)
+async def start_negotiation(request: NegotiationStartRequest):
+    """
+    Triggers the negotiation workflow for a specific place.
+    Called when user clicks NEGOTIATE button on a place.
+    
+    Flow: Updates state with route=path_b, then re-invokes graph.
+    The revisor_node will see route=path_b and skip to negotiation_path.
+    """
+    try:
+        logger.info("="*60)
+        logger.info("🤝 NEGOTIATE BUTTON CLICKED")
+        logger.info(f"   Place: {request.place_name}")
+        logger.info(f"   Thread: {request.thread_id}")
+        logger.info(f"   Target Price: {request.target_price}")
+        logger.info(f"   Goal: {request.initial_message}")
+        logger.info("="*60)
+        
+        config = get_thread_config(request.thread_id)
+        
+        # Get current state to find the place object
+        current_state = await negotiator_agent.aget_state(config)
+        if not current_state:
+             raise HTTPException(status_code=404, detail="Thread not found")
+             
+        serp_results = current_state.values.get("serp_results", [])
+        logger.info(f"📋 Found {len(serp_results)} places in state")
+        
+        # Find the place by name (fuzzy match)
+        target_place = None
+        for p in serp_results:
+            if p.get("name") == request.place_name or request.place_name in p.get("name", ""):
+                target_place = p
+                break
+        
+        if not target_place:
+            logger.warning(f"⚠️ Place '{request.place_name}' not found in serp_results, creating minimal object")
+            target_place = {"name": request.place_name, "address": "Unknown", "phone": "Unknown"}
+        else:
+            logger.info(f"✅ Found place: {target_place.get('name')}")
+            logger.info(f"   Phone: {target_place.get('phone', 'N/A')}")
+            logger.info(f"   Address: {target_place.get('address', 'N/A')}")
+        
+        # Get current timestamp for filtering messages later
+        import time
+        negotiation_start_time = int(time.time())
+        logger.info(f"⏰ Negotiation start time: {negotiation_start_time}")
+        
+        # Build the state update for negotiation
+        negotiation_state = {
+            "route": "path_b",  # Force PATH B (Negotiation)
+            "is_complete": False,
+            "recommendations": [target_place],
+            "target_price": request.target_price,
+            "user_intent": request.initial_message or f"Negotiate price for {request.place_name}",
+            "negotiation_active": True,
+            "negotiation_status": "ongoing",
+            "negotiation_history": [],  # Fresh start
+            "negotiation_start_time": negotiation_start_time,  # Track when negotiation started
+            "messages": [HumanMessage(content=f"User wants to negotiate with {request.place_name}. Goal: {request.initial_message or 'Get best price'}")]
+        }
+        
+        logger.info("📝 Updating state for negotiation...")
+        
+        # Update state and invoke graph from beginning
+        # The revisor_node will see route=path_b and go to negotiation_path
+        result = await negotiator_agent.ainvoke(negotiation_state, config)
+        
+        logger.info("✅ Negotiation flow started!")
+        logger.info(f"   Current step: {result.get('current_step', 'unknown')}")
+        
+        # Check if we hit the HITL interrupt
+        state_after = await negotiator_agent.aget_state(config)
+        next_node = state_after.next if state_after else None
+        
+        response_msg = "Negotiation started"
+        requires_approval = False
+        planned_message = None
+        
+        if next_node and "human_review" in next_node:
+            logger.info("⏸️ Graph paused at human_review - waiting for approval")
+            requires_approval = True
+            planned_message = state_after.values.get("planned_message", "")
+            response_msg = f"Review negotiation message before sending"
+        
+        return AgentResponse(
+            message=response_msg,
+            thread_id=request.thread_id,
+            data={
+                "planned_message": planned_message,
+                "target_place": target_place,
+                "requires_approval": requires_approval
+            },
+            requires_approval=requires_approval,
+            is_complete=False
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Negotiation start error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -487,6 +1107,47 @@ async def stream_agent(thread_id: str):
                 # Graph hasn't started - kick it off now
                 logger.info("Starting agent execution...")
             
+            # Check if we're paused at human_review interrupt - DON'T continue, just show HITL UI
+            if state_snapshot.next and "human_review" in state_snapshot.next:
+                logger.info("Graph paused at human_review - showing HITL panel")
+                planned_msg = state_snapshot.values.get("planned_message", "")
+                interrupt_data = json.dumps({
+                    "type": "interrupt",
+                    "node": "human_review",
+                    "plan": "Review negotiation message",
+                    "message": planned_msg,
+                    "target_place": state_snapshot.values.get("recommendations", [{}])[0] if state_snapshot.values.get("recommendations") else {}
+                })
+                yield f"data: {interrupt_data}\n\n"
+                return  # Don't continue streaming - wait for approval
+            
+            # Check if negotiation is waiting for reply
+            if state_snapshot.values.get("negotiation_status") == "end":
+                # Get target place name for chat header
+                recs = state_snapshot.values.get("recommendations", [])
+                target_place_name = recs[0].get("name", "Shopkeeper") if recs else "Shopkeeper"
+                
+                # Get last sent message
+                history = state_snapshot.values.get("negotiation_history", [])
+                last_message = ""
+                for msg in reversed(history):
+                    if msg.get("role") == "agent":
+                        last_message = msg.get("content", "")
+                        break
+                
+                # If no history, check planned_message
+                if not last_message:
+                    last_message = state_snapshot.values.get("planned_message", "Message sent")
+                
+                waiting_data = json.dumps({
+                    "type": "waiting",
+                    "message": "SMS sent! Waiting for reply from shopkeeper...",
+                    "target_place": target_place_name,
+                    "last_message": last_message
+                })
+                yield f"data: {waiting_data}\n\n"
+                return
+            
             # Stream state updates using stream_mode="updates" to track node changes
             previous_step = state_snapshot.values.get("current_step", "")
             
@@ -584,16 +1245,20 @@ async def stream_agent(thread_id: str):
                 # Check for interrupts after each update
                 current_state = await negotiator_agent.aget_state(config)
                 
-                # Check if interrupted for HITL
-                if current_state.next and current_state.next == ("human_review_node",):
+                # Check if interrupted for HITL (Human Review)
+                if current_state.next and current_state.next == ("human_review",):
+                    # Extract planned message
+                    planned_msg = current_state.values.get("planned_message", "No plan generated")
+                    
                     interrupt_data = json.dumps({
                         "type": "interrupt",
-                        "node": "human_review_node",
-                        "serp_results": current_state.values.get("serp_results", []),
-                        "places_count": len(current_state.values.get("serp_results", []))
+                        "node": "human_review",
+                        "plan": "Review negotiation strategy",
+                        "message": planned_msg,
+                        "serp_results": current_state.values.get("serp_results", [])
                     })
                     yield f"data: {interrupt_data}\n\n"
-                    logger.info("HITL interrupt detected")
+                    logger.info("HITL interrupt detected (Negotiation)")
                     return
                 
                 # Check if complete
@@ -606,6 +1271,34 @@ async def stream_agent(thread_id: str):
                     })
                     yield f"data: {complete_data}\n\n"
                     logger.info("Agent completed")
+                    return
+                
+                # Check if waiting for reply (Negotiation Loop)
+                negotiation_status = current_state.values.get("negotiation_status")
+                if negotiation_status == "end" and not current_state.values.get("is_complete"):
+                    # Get target place name for chat header
+                    recs = current_state.values.get("recommendations", [])
+                    target_place_name = recs[0].get("name", "Shopkeeper") if recs else "Shopkeeper"
+                    
+                    # Get last sent message
+                    history = current_state.values.get("negotiation_history", [])
+                    last_message = ""
+                    for msg in reversed(history):
+                        if msg.get("role") == "agent":
+                            last_message = msg.get("content", "")
+                            break
+                    
+                    if not last_message:
+                        last_message = current_state.values.get("planned_message", "Message sent")
+                    
+                    waiting_data = json.dumps({
+                        "type": "waiting",
+                        "message": "SMS sent! Waiting for reply from shopkeeper...",
+                        "target_place": target_place_name,
+                        "last_message": last_message
+                    })
+                    yield f"data: {waiting_data}\n\n"
+                    logger.info("Agent waiting for reply")
                     return
         
         except Exception as e:

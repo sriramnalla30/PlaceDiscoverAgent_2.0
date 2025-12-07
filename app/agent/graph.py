@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from typing import Literal
 from app.agent.state import AgentState
 from app.agent.nodes import (
     revisor_node,
@@ -7,7 +8,10 @@ from app.agent.nodes import (
     negotiation_path_node,
     review_extraction_node,
     analyze_reviews_node,
-    decide_path
+    decide_path,
+    strategy_node,
+    human_review_node,
+    negotiation_manager_node
 )
 from app.config import settings
 
@@ -29,7 +33,7 @@ def create_negotiator_agent():
     workflow = StateGraph(AgentState)
     
     # ==========================================
-    # ADD NODES (YOUR DESIGN)
+    # ADD NODES 
     # ==========================================
     
     # STEP 5: Revisor Node - Gemini decides which path
@@ -44,8 +48,12 @@ def create_negotiator_agent():
     # STEP 7: Analyze Reviews
     workflow.add_node("analyze_reviews", analyze_reviews_node)
     
-    # PATH B: Negotiation workflow (placeholder for now)
+    # PATH B: Negotiation workflow (Real SMS - no simulation)
     workflow.add_node("negotiation_path", negotiation_path_node)
+    workflow.add_node("strategy", strategy_node)
+    workflow.add_node("human_review", human_review_node)
+    workflow.add_node("negotiation_manager", negotiation_manager_node)
+    # Note: shop_simulation removed - we use real SMS
     
     # ==========================================
     # SET ENTRY POINT
@@ -76,8 +84,33 @@ def create_negotiator_agent():
     # Analyze Reviews → END
     workflow.add_edge("analyze_reviews", END)
     
-    # PATH B: Negotiation → END (for now, will expand later)
-    workflow.add_edge("negotiation_path", END)
+    # PATH B: Negotiation Workflow Edges
+    # Flow: negotiation_path → negotiation_manager → strategy → human_review → negotiation_manager (loop)
+    
+    # Init -> Manager (to check history/status)
+    workflow.add_edge("negotiation_path", "negotiation_manager")
+    
+    # Strategy -> Human Review (HITL - pauses here for approval)
+    workflow.add_edge("strategy", "human_review")
+    
+    # Human Review -> Manager (after SMS sent, check for reply)
+    workflow.add_edge("human_review", "negotiation_manager")
+    
+    # Manager -> Conditional (Continue to next strategy or End)
+    def check_negotiation_status(state: AgentState) -> Literal["strategy", "end"]:
+        status = state.get("negotiation_status", "continue")
+        if status == "continue":
+            return "strategy"
+        return "end"
+        
+    workflow.add_conditional_edges(
+        "negotiation_manager",
+        check_negotiation_status,
+        {
+            "strategy": "strategy",
+            "end": END
+        }
+    )
     
     # ==========================================
     # CONFIGURE PERSISTENCE (Memory)
@@ -91,8 +124,8 @@ def create_negotiator_agent():
     # ==========================================
     
     app = workflow.compile(
-        checkpointer=checkpointer
-        # No interrupt_before - STEP 5 runs automatically after STEP 4
+        checkpointer=checkpointer,
+        interrupt_before=["human_review"] # PAUSE before human review node runs
     )
     
     return app

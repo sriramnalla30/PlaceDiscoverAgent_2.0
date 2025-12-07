@@ -1,296 +1,626 @@
-# 🤖 Place Discovery AI Agent
+# PlaceDiscoverAgent 2.0
 
-An intelligent agentic system for discovering and analyzing local businesses using LLM-driven decision making, multi-stage reasoning, and transparent real-time workflow visualization.
-
-## ✨ Key Features
-
-- **🧠 LangGraph State Machine**: Multi-node workflow with conditional routing and checkpointed state
-- **🤖 Multi-LLM Pipeline**: Groq (Llama-3.3-70b) for query parsing, routing, and sentiment analysis
-- **🌐 Hybrid Web Scraping**: WebScraping.AI (residential proxies) + BeautifulSoup + Groq for intelligent review extraction
-- **⚡ Real-time Streaming**: FastAPI SSE endpoints showing complete agent "thinking" process
-- **📊 Interactive Dashboard**: Live visualization of tool usage, review analysis, and LLM decisions
-- **🔍 Smart Search**: SerpStack API for location-based place discovery
-- **🏆 Multi-Candidate Analysis**: Evaluates reviews from top 3 candidates before selecting winner
+A local business discovery and negotiation agent built with LangGraph and FastAPI. This system combines web search, review analysis, and SMS-based negotiation with human approval at every step.
 
 ---
 
-## 🎯 What It Does
+## Overview
 
-**Input:** Natural language query (e.g., "Find the best gym in Koramangala, Bangalore")
+This agent helps you find local businesses, analyze their reviews, and negotiate deals via SMS. The workflow uses a reflection pattern where the system drafts messages, you review and approve them, and the agent learns from responses to continue the conversation.
 
-**Agent Process:**
+**Core Features:**
 
-1. 🧭 Parses location & place type using LLM
-2. 🔍 Searches SerpStack for top 10 results
-3. 📊 Selects top 3 candidates by rating
-4. 🌐 Scrapes Google reviews for all 3 (WebScraping.AI)
-5. 🤖 LLM analyzes sentiment & quality of reviews
-6. 🏆 Returns winner with detailed explanation
-
-**Output:** Best place recommendation backed by review-based evidence and transparent reasoning
+- Natural language business search powered by SerpStack
+- Review scraping and sentiment analysis from Google Maps
+- SMS negotiation with shops using their real phone numbers
+- Human-in-the-loop approval before every message
+- Real-time streaming dashboard showing agent reasoning
 
 ---
 
-## 🏗️ Architecture
+## How Reflection Works
+
+**Reflection Pattern:**  
+Generate → Critique → Revise → Decide to continue or end
+
+**Applied in this agent:**
+
+1. **Responder** drafts a message using context (reviews, pricing, user goals)
+2. **Revisor** critiques the draft for tone, leverage, and strategy
+3. **Human approval** required before sending (you can edit the message)
+4. **Loop continues** based on shop replies until deal reached or declined
+
+**Visual References:**
+
+- `reflection_agent.png` - Basic reflection loop concept
+- `reflexion_agent.png` - Advanced reflexion pattern with tool use
+- `data_flow.png` - Complete system data flow
+
+---
+
+## Complete User Journey
+
+1. **Search Query**  
+   Type: _"Find the best gym in Koramangala, Bangalore and negotiate membership"_
+
+2. **Intent Parsing**  
+   LLM extracts: City (Bangalore), Area (Koramangala), Type (Gym), Intent (Negotiate)
+
+3. **Business Discovery**  
+   SerpStack fetches ~10 local businesses with:
+
+   - Name, address, phone number
+   - Rating and review count
+   - Basic business info
+
+4. **Review Analysis**
+
+   - Top 3 businesses selected by rating
+   - WebScraping.AI extracts actual Google Maps reviews
+   - LLM analyzes sentiment, quality, common complaints/praises
+   - Best option selected with reasoning
+
+5. **Results Display**  
+   Dashboard shows:
+
+   - **Recommended business** (highlighted green card)
+   - All results in grid with quick actions
+   - Maps button (opens Google Maps to location)
+   - Call button (click-to-call on mobile)
+   - Negotiate button (starts SMS workflow)
+
+6. **Negotiation Setup**  
+   Click Negotiate → Enter:
+   - Your goal (e.g., "Get monthly membership under ₹3000")
+   - Target price (optional)
+7. **Message Drafting**  
+   Agent creates draft message using:
+   - Review insights for leverage
+   - Your stated goal
+   - Professional, friendly tone
+8. **Human Approval**  
+   Yellow sticky note panel shows:
+
+   - Proposed message
+   - Agent's strategy/reasoning
+   - Edit box (modify if needed)
+   - Approve or Cancel buttons
+
+9. **SMS Exchange**
+
+   - Message sent to shop's phone (from SerpStack)
+   - Chat interface opens on right side
+   - Auto-polls for replies every 10 seconds
+   - Each reply analyzed by agent
+   - New draft suggested (back to step 8)
+
+10. **Resolution**  
+    Continues until:
+    - Shop agrees to terms
+    - Shop declines
+    - You manually end negotiation
+
+---
+
+## System Architecture
 
 ### Technology Stack
 
-| Component     | Technology                     | Purpose                          |
-| ------------- | ------------------------------ | -------------------------------- |
-| **LLM**       | Groq (Llama-3.3-70b)           | Query parsing, routing, analysis |
-| **Framework** | LangGraph                      | Stateful agent workflows         |
-| **Backend**   | FastAPI                        | Async API with SSE streaming     |
-| **Memory**    | MemorySaver                    | State checkpointing              |
-| **Search**    | SerpStack API                  | Place discovery                  |
-| **Scraping**  | WebScraping.AI + BeautifulSoup | HTML fetching & cleaning         |
-| **Frontend**  | HTML/CSS/JS                    | Real-time dashboard              |
+| Layer             | Technology              | Purpose                                                |
+| ----------------- | ----------------------- | ------------------------------------------------------ |
+| **LLM**           | Groq (Llama 3.3 70B)    | Intent parsing, message drafting, sentiment analysis   |
+| **Orchestration** | LangGraph               | State machine with conditional routing and checkpoints |
+| **Backend**       | FastAPI                 | REST API with Server-Sent Events for real-time updates |
+| **Search**        | SerpStack API           | Local business discovery with contact details          |
+| **Scraping**      | WebScraping.AI          | Google Maps review extraction                          |
+| **SMS**           | SMSMobileAPI            | Send/receive SMS (works via Android app)               |
+| **Frontend**      | Vanilla HTML/CSS/JS     | Dashboard with live streaming and chat interface       |
+| **State Storage** | MemorySaver (in-memory) | Conversation state persistence                         |
 
-### Workflow Architecture
+### LangGraph Workflow
 
 ```
-User Query → LLM Parser → Router Decision
-                              ↓
-                         PATH A: Review Analysis
-                              ↓
-              SerpStack Search (top 10 results)
-                              ↓
-              Select Top 3 by Rating/Reviews
-                              ↓
-              Review Extraction for ALL 3
-              (WebScraping.AI → BS4 → Groq LLM)
-                              ↓
-              LLM Judge: Analyze Sentiment
-                              ↓
-              Winner Selection + Explanation
-                              ↓
-                            END
+START
+  ↓
+REVISOR (Router Node)
+  ↓
+  ├──> PATH A: Simple Search
+  │      ├─ Fetch from SerpStack
+  │      ├─ Select top 3 by rating
+  │      ├─ Scrape reviews
+  │      ├─ Analyze with LLM
+  │      └─ Return best option → END
+  │
+  └──> PATH B: Negotiation
+         ├─ Init negotiation state
+         ├─ Strategy formulation
+         ├─ HUMAN REVIEW (⏸️ INTERRUPT)
+         ├─ Send SMS
+         ├─ Poll for reply
+         ├─ Analyze response
+         └─ Loop back to Strategy (or END if resolved)
 ```
 
-**PATH B (Negotiation)** - Placeholder for future development
+**Key Features:**
+
+- **Conditional routing** based on user intent
+- **Interrupts** pause execution for human approval
+- **Streaming** pushes real-time events to frontend
+- **State persistence** maintains context across sessions
 
 ---
 
-## 🚀 Quick Start
+## Project Structure
+
+```
+PlaceDiscoverAgent_2.0/
+│
+├── app/
+│   ├── main.py                 # FastAPI routes, SSE endpoints
+│   ├── config.py               # Environment variable config
+│   ├── models.py               # Pydantic request/response schemas
+│   │
+│   ├── agent/
+│   │   ├── graph.py            # LangGraph workflow definition
+│   │   ├── nodes.py            # All workflow nodes (responder, revisor, etc.)
+│   │   ├── state.py            # Shared state schema
+│   │   └── tools.py            # SerpStack, WebScraping.AI integrations
+│   │
+│   ├── messaging/
+│   │   ├── base.py             # Messaging provider interface
+│   │   ├── service.py          # Provider factory
+│   │   └── smsmobileapi.py     # SMSMobileAPI implementation
+│   │
+│   └── static/
+│       └── style.css           # Dashboard styles
+│
+├── data/
+│   └── checkpoints.db          # Runtime state (gitignored)
+│
+├── backend/
+│   └── requirements.txt        # Python dependencies
+│
+├── frontend/
+│   └── dashboard.html          # Main UI (served at localhost:8000/frontend/dashboard.html)
+│
+├── reflection_agent.png        # Concept diagram
+├── reflexion_agent.png         # Advanced pattern diagram
+├── data_flow.png               # System flow diagram
+│
+├── .env                        # Your API keys (NOT COMMITTED)
+├── .env.example                # Template for .env
+├── .gitignore                  # Excludes .env, checkpoints.db
+└── README.md                   # This file
+```
+
+---
+
+## Detailed Setup Guide
 
 ### Prerequisites
 
-- Python 3.10+
-- API Keys: Groq, SerpStack, WebScraping.AI
+1. **Python 3.10 or higher**  
+   Check: `python --version`
 
-### Installation
+2. **API Keys** (all have free tiers):
 
-```bash
-# Clone repository
-git clone <your-repo-url>
-cd Search_Agent
+   - **Groq**: [console.groq.com](https://console.groq.com/) → Create account → Copy API key
+   - **SerpStack**: [serpstack.com](https://serpstack.com/) → Sign up → Get free API key (100 searches/month)
+   - **WebScraping.AI**: [webscraping.ai](https://webscraping.ai/) → Sign up → Get API key (1000 requests/month)
+   - **SMSMobileAPI**: [smsmobileapi.com](https://www.smsmobileapi.com/) → Install Android app → Generate API key
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys:
-# GROQ_API_KEY=your_groq_key
-# GROQ_API_KEY_2=your_second_groq_key
-# SERPSTACK_API_KEY=your_serpstack_key
-# WEBSCRAPING_AI_API_KEY=your_webscraping_ai_key
-```
-
-### Run the Agent
-
-```bash
-# Start FastAPI server
-python -m uvicorn app.main:app --reload
-
-# Open dashboard in browser
-# Navigate to: http://localhost:8000/dashboard.html
-```
-
-### Usage Example
-
-1. Open `dashboard.html` in your browser
-2. Enter query: "Find the best gym in Koramangala, Bangalore"
-3. Watch real-time agent thinking:
-   - Tool usage badges (🔍 SerpStack, 🤖 WebScraping.AI)
-   - Review content for all 3 candidates
-   - LLM decision process
-4. Get winner recommendation with explanation
+3. **Phone for SMS** (if using SMSMobileAPI):
+   - Android phone with active SIM
+   - Install SMSMobileAPI app from Play Store
+   - Keep phone connected to internet
 
 ---
 
-## 📁 Project Structure
+### Installation Steps
 
-```
-Search_Agent/
-├── app/
-│   ├── main.py              # FastAPI endpoints & SSE streaming
-│   ├── config.py            # Environment configuration
-│   ├── models.py            # Pydantic data models
-│   └── agent/
-│       ├── graph.py         # LangGraph workflow definition
-│       ├── nodes.py         # Agent nodes (revisor, analyzer, etc.)
-│       ├── state.py         # Shared state schema
-│       └── tools.py         # External API tools (SerpStack, WebScraping.AI)
-├── data/                    # Checkpoints storage (auto-created)
-├── dashboard.html           # Interactive frontend UI
-├── requirements.txt         # Python dependencies
-├── .env.example             # Environment variable template
-├── start_server.bat         # Windows batch script to start server
-└── README.md                # This file
+#### 1. Clone Repository
+
+```bash
+git clone https://github.com/sriramnalla30/PlaceDiscoverAgent_2.0.git
+cd PlaceDiscoverAgent_2.0
 ```
 
----
+#### 2. Create Virtual Environment
 
-## 🔑 Required API Keys
+**Windows (PowerShell):**
 
-Add these to your `.env` file:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+```
 
-```env
-GROQ_API_KEY=your_groq_api_key
-GROQ_API_KEY_2=your_second_groq_key
-SERPSTACK_API_KEY=your_serpstack_key
+**Linux/Mac:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+You should see `(.venv)` prefix in your terminal.
+
+#### 3. Install Dependencies
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+**What gets installed:**
+
+- `fastapi` + `uvicorn` — Web framework and server
+- `langchain` + `langgraph` — LLM orchestration
+- `groq` — Groq API client
+- `requests` — HTTP requests
+- `beautifulsoup4` — HTML parsing
+- `pydantic-settings` — Config management
+- `smsmobileapi` — SMS provider (if using SMSMobileAPI)
+
+#### 4. Configure Environment Variables
+
+Create a file named `.env` in the project root:
+
+```bash
+# === LLM Configuration ===
+GROQ_API_KEY=gsk_your_primary_groq_key_here
+GROQ_API_KEY_2=gsk_optional_backup_key_here
+
+# === Search & Scraping ===
+SERPSTACK_API_KEY=your_serpstack_api_key
 WEBSCRAPING_AI_API_KEY=your_webscraping_ai_key
+
+# === SMS Provider ===
+messaging_provider=smsmobileapi
+smsmobileapi_key=your_smsmobileapi_key_here
+
+# === Phone Number Settings ===
+# Leave BLANK to use shop's phone from SerpStack
+# Only set if you need fallback when shop has no phone
+default_target_number=
+default_sender_number=
+
+# === LangSmith (Optional Debugging) ===
+langchain_tracing_v2=true
+langchain_endpoint=https://api.smith.langchain.com
+langchain_api_key=your_langsmith_key_optional
+langchain_project=PlaceDiscoverAgent
 ```
 
-**Get API Keys:**
+**Important Notes:**
 
-- [Groq Console](https://console.groq.com/) - Free tier available
-- [SerpStack](https://serpstack.com/) - 100 free searches/month
-- [WebScraping.AI](https://webscraping.ai/) - 1000 free requests/month
+- **Never commit `.env`** — Already in `.gitignore`
+- **`default_target_number`** — Leave blank unless you want to test without real shop phones
+- **Two Groq keys** — Recommended to avoid rate limits
+- **SMSMobileAPI key** — Get from app settings after installing on your Android phone
 
----
+#### 5. Verify Setup
 
-## 🎯 Implementation Details
-
-### PATH A: Review-Based Selection (✅ Implemented)
-
-**Nodes:**
-
-1. **Revisor Node** - Routes queries to appropriate path (A or B)
-2. **Simple Best Reviewed Node** - Fetches top 10 from SerpStack, selects top 3 by rating
-3. **Review Extraction Node** - Scrapes Google reviews for all 3 candidates
-4. **Analyze Reviews Node** - LLM evaluates sentiment, picks winner with explanation
-
-**Key Technologies:**
-
-- **Structured Outputs**: Uses Pydantic models for LLM responses (type safety)
-- **Hybrid Scraping**: WebScraping.AI HTML → BeautifulSoup cleaning → Groq extraction
-- **State Checkpointing**: MemorySaver persists workflow state across streaming sessions
-- **SSE Streaming**: Frontend receives real-time events (node_start, tool_usage, llm_response)
-
-### Dashboard Features
-
-**Real-time Visualization:**
-
-- 🔧 Tool usage badges (SerpStack, WebScraping.AI + Groq)
-- 📝 Review content display for all candidates
-- 🎯 LLM decision with reasoning
-- ⏱️ Node execution tracking
-- 🔄 Streaming event handling
-
-**Event Types:**
-
-- `data_fetched` - SerpStack results
-- `reviews_fetched` - Extracted reviews
-- `node_start` - Agent node execution
-- `llm_response` - LLM decision output
-
----
-
-## 🛠️ Development
-
-### Testing the Review Tool
+Check if all dependencies installed correctly:
 
 ```bash
-# Test WebScraping.AI + Groq integration
-python test_review_tool.py
+python -c "import fastapi, langchain, groq; print('All imports successful!')"
 ```
 
-### Key Code Locations
+Should print: `All imports successful!`
 
-**Agent Logic:**
+#### 6. Start the Server
 
-- `app/agent/nodes.py` - Workflow nodes
-- `app/agent/graph.py` - LangGraph state machine
-- `app/agent/tools.py` - API integrations
+```bash
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-**Streaming:**
+**Expected Output:**
 
-- `app/main.py` - `/agent/start` (state init) & `/stream` (SSE execution)
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [XXXXX]
+INFO:     Started server process [XXXXX]
+INFO:     Application startup complete.
+```
 
-**Frontend:**
+#### 7. Access Dashboard
 
-- `dashboard.html` - SSE client with event handlers
+Open browser and go to:
 
----
+```
+http://localhost:8000/frontend/dashboard.html
+```
 
-## 🔮 Future Enhancements (PATH B)
+You should see:
 
-**Planned Features:**
-
-- 📞 Phone number extraction from search results
-- 🔍 Tavily API deep research
-- 💰 Pricing strategy generation
-- 👤 Human-in-the-loop approval panel
-- 🤝 Simulated negotiation workflow
-
----
-
-## 📊 Performance Notes
-
-- **Groq API**: ~1-2s per LLM call (Llama-3.3-70b)
-- **SerpStack**: ~1-3s per search
-- **WebScraping.AI**: ~3-5s per page (residential proxies)
-- **Total Workflow**: ~15-25s for complete analysis
+- Header: "🔍 Place Discover"
+- Search card with textarea
+- Step indicator (1-6)
+- SMS gateway notice
 
 ---
 
-## 👤 Author
+### Testing the System
 
-Built as an AI agentic system demonstration project showcasing:
+#### Quick Test (No SMS)
 
-- LangGraph state machines
-- Multi-stage LLM reasoning
-- Hybrid web scraping techniques
-- Real-time streaming architectures
+1. Enter query: `"Find the best cafe in Indiranagar, Bangalore"`
+2. Click **Start Scouting**
+3. Watch:
+
+   - Steps light up (1 → 2 → 3 → 4 → 5)
+   - Logs show tool usage
+   - SerpStack results displayed
+   - Reviews analyzed
+   - Best recommendation highlighted
+
+4. Check results:
+   - Green card shows best pick
+   - All options in grid below
+   - Maps/Call buttons work
+   - **Don't click Negotiate yet** (requires SMS setup)
+
+#### Full Test (With SMS)
+
+1. **Prerequisites:**
+
+   - SMSMobileAPI app installed and running
+   - API key in `.env`
+   - Phone has internet and SMS
+
+2. Enter query: `"Find gyms in Koramangala and negotiate monthly fee"`
+
+3. Click best result's **Negotiate** button
+
+4. Fill modal:
+
+   - Goal: "Get monthly membership under ₹2500"
+   - Target Price: 2500
+
+5. Click **Launch Agent**
+
+6. **HITL Panel appears** (yellow sticky note):
+
+   - Review proposed message
+   - Edit if needed
+   - Click **Approve & Contact**
+
+7. **Chat opens** on right side:
+   - Message sent to shop
+   - Wait for reply (polls every 10 seconds)
+   - Agent suggests response
+   - Approve again
+   - Continue loop
 
 ---
 
-## 🤝 Contributing
+## Production Deployment
+
+### Environment Variables
+
+**DO NOT hardcode:**
+
+- API keys
+- Phone numbers
+- Passwords
+
+**Use platform's secret management:**
+
+- Railway → Settings → Variables
+- Render → Environment → Secret Files
+- Fly.io → Secrets
+- Docker → .env file (not committed)
+
+### Example Production `.env`
+
+```bash
+# Minimal production config
+GROQ_API_KEY=${GROQ_KEY}  # Injected by platform
+SERPSTACK_API_KEY=${SERP_KEY}
+WEBSCRAPING_AI_API_KEY=${SCRAPE_KEY}
+messaging_provider=smsmobileapi
+smsmobileapi_key=${SMS_KEY}
+environment=production
+```
+
+### Run Command (Production)
+
+```bash
+# Don't use --reload in production
+python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+```
+
+### Security Checklist
+
+- ✅ `.env` in `.gitignore`
+- ✅ CORS configured for your domain only
+- ✅ API keys rotated regularly
+- ✅ Rate limiting enabled (if high traffic)
+- ✅ HTTPS enabled (use reverse proxy)
+- ✅ Phone with SMSMobileAPI always connected
+
+### Monitoring
+
+- **LangSmith** — Trace LLM calls and debug workflows
+- **Application logs** — Check `uvicorn` output for errors
+- **API quotas** — Monitor Groq, SerpStack, WebScraping.AI usage
+
+---
+
+## Code Deep Dive
+
+### Key Files Explained
+
+#### `app/agent/graph.py`
+
+Defines the LangGraph workflow:
+
+- Creates `StateGraph` with `AgentState` schema
+- Adds nodes (revisor, strategy, human_review, etc.)
+- Sets conditional edges (PATH A vs PATH B)
+- Configures interrupts (pause at HITL)
+- Compiles with MemorySaver checkpoint
+
+#### `app/agent/nodes.py`
+
+Implements all workflow nodes:
+
+- `revisor_node` — Routes to PATH A or B
+- `simple_best_reviewed_node` — Sorts by rating
+- `review_extraction_node` — Scrapes Google Maps
+- `analyze_reviews_node` — LLM sentiment analysis
+- `negotiation_path_node` — Initializes SMS workflow
+- `strategy_node` — Drafts message
+- `human_review_node` — Sends SMS after approval
+- `negotiation_manager_node` — Polls replies, decides to continue/end
+
+#### `app/agent/tools.py`
+
+External API integrations:
+
+- `search_places(query)` — Calls SerpStack
+- `extract_reviews(place_name)` — WebScraping.AI + BeautifulSoup + LLM
+
+#### `app/messaging/smsmobileapi.py`
+
+SMS provider implementation:
+
+- `send_message(to, message)` — Sends SMS via API
+- `get_messages()` — Fetches inbox messages
+
+#### `app/main.py`
+
+FastAPI application:
+
+- `/agent/start` — Initialize workflow, save state
+- `/agent/stream` — SSE endpoint for real-time updates
+- `/agent/negotiate/start` — Begin negotiation for a place
+- `/agent/approve` — Resume graph after HITL approval
+- `/agent/check-reply` — Poll for SMS replies
+- `/agent/send-chat` — Send continuation message
+- `/agent/terminate` — End negotiation
+
+#### `frontend/dashboard.html`
+
+Frontend with:
+
+- Search form and step indicator
+- SSE client (connects to `/agent/stream`)
+- Log container for real-time events
+- Results grid with Maps/Call/Negotiate buttons
+- HITL approval panel
+- Chat interface for SMS negotiation
+
+---
+
+## Troubleshooting
+
+### Issue: Server won't start
+
+**Error:** `ModuleNotFoundError: No module named 'fastapi'`  
+**Fix:**
+
+```bash
+# Make sure venv is activated
+.\.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
+
+# Reinstall dependencies
+pip install -r backend/requirements.txt
+```
+
+### Issue: "No API key configured"
+
+**Error:** `APIKeyError: GROQ_API_KEY not set`  
+**Fix:**
+
+- Check `.env` file exists in project root
+- Verify key format: `GROQ_API_KEY=gsk_...`
+- Restart server after editing `.env`
+
+### Issue: SerpStack returns no results
+
+**Possible causes:**
+
+- Invalid API key
+- Query doesn't include location
+- API quota exhausted
+
+**Fix:**
+
+- Test key at [serpstack.com/dashboard](https://serpstack.com/dashboard)
+- Include city in query: "gyms in Bangalore"
+- Check quota limits
+
+### Issue: SMS not sending
+
+**Checklist:**
+
+- SMSMobileAPI app running on phone
+- Phone has internet connection
+- Phone has active SIM with SMS capability
+- API key correct in `.env`
+- `messaging_provider=smsmobileapi` set
+
+**Debug:**
+
+```bash
+# Check logs for SMS errors
+python -m uvicorn app.main:app --reload --log-level debug
+```
+
+### Issue: Frontend shows blank page
+
+**Fix:**
+
+- Check URL: `http://localhost:8000/frontend/dashboard.html` (with `.html`)
+- Check browser console for errors (F12)
+- Verify static files mounted correctly in `app/main.py`
+
+### Issue: HITL panel doesn't appear
+
+**Cause:** Graph not paused correctly  
+**Fix:**
+
+- Verify `interrupt_before=["human_review"]` in `graph.py`
+- Check state update after `/agent/negotiate/start`
+
+---
+
+## Contributing
 
 Contributions welcome! Areas for improvement:
 
-- PATH B negotiation workflow implementation
-- Additional scraping fallback strategies
-- Enhanced error handling
-- Performance optimization
-- UI/UX improvements
+1. **Multi-provider SMS** — Add Twilio, Nexmo support
+2. **Voice calls** — Add phone call capability
+3. **Better review analysis** — More sophisticated sentiment models
+4. **Caching** — Redis for search results
+5. **UI enhancements** — Mobile-responsive design
+6. **Analytics** — Track negotiation success rates
+7. **Testing** — Unit and integration tests
 
 ---
 
-## 🐛 Troubleshooting
+## License
 
-**Issue**: Agent not streaming in real-time  
-**Solution**: Ensure `/agent/start` only saves state (doesn't execute), streaming happens in `/stream`
-
-**Issue**: Review extraction failing  
-**Solution**: Check WebScraping.AI API quota, verify API key in `.env`
-
-**Issue**: No results from SerpStack  
-**Solution**: Validate API key, check query format (needs location + place type)
+MIT License - See LICENSE file for details
 
 ---
 
-**Last Updated**: November 2025
+## Contact
 
-Input:
-<img width="1919" height="1076" alt="image" src="https://github.com/user-attachments/assets/0a6edb15-c93d-4f43-a18e-974b04cc39d0" />
+**Repository:** [github.com/sriramnalla30/PlaceDiscoverAgent_2.0](https://github.com/sriramnalla30/PlaceDiscoverAgent_2.0)
 
-Procesing:
-<img width="1919" height="1064" alt="image" src="https://github.com/user-attachments/assets/326e7c91-281f-4aaa-a921-28068f223458" />
-<img width="1027" height="936" alt="image" src="https://github.com/user-attachments/assets/4bd7b80b-9183-4a35-b63b-9de4388b4076" />
-<img width="1047" height="952" alt="image" src="https://github.com/user-attachments/assets/9b132ea4-22f3-4200-a6fe-e9d35f71525f" />
-<img width="1194" height="947" alt="image" src="https://github.com/user-attachments/assets/5dfccf21-6433-4fd9-a917-d76d0cd59258" />
-<img width="713" height="932" alt="image" src="https://github.com/user-attachments/assets/b614cc7c-9d47-44d0-badc-ec4f2582105c" />
+**Issues:** Use GitHub Issues for bugs and feature requests
 
+---
 
+## Acknowledgments
+
+- LangGraph team for the state graph framework
+- Groq for fast LLM inference
+- SerpStack for local business search
+- WebScraping.AI for reliable scraping
+- SMSMobileAPI for SMS gateway
+
+---
+
+**Last Updated:** December 2025

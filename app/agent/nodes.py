@@ -63,19 +63,37 @@ class PathDecision(BaseModel):
 
 async def revisor_node(state: AgentState) -> dict:
     """
-    STEP 5: Revisor Node - Gemini decides PATH A or PATH B
+    STEP 5: Revisor Node - ALWAYS goes PATH A first
+    
+    NEW DESIGN:
+    - ALWAYS return path_a to show results first
+    - path_b ONLY when user clicks NEGOTIATE button (route forced externally)
     
     Analyzes:
     - user_query (original natural language)
-    - user_intent (parsed by LLM in STEP 2)
     - serp_results (SERPSTACK data from STEP 4)
-    
-    Decision Logic:
-    PATH A: User asks for "best reviewed", "top rated", "highest rating"
-    PATH B: User mentions "negotiate", "price", "budget", "fees", "cost"
     """
     
+    logger.info("="*50)
     logger.info("🔍 STEP 5: Revisor Node - Analyzing query intent...")
+    logger.info(f"   User Query: {state.get('user_query', 'N/A')}")
+    logger.info(f"   SERP Results Count: {len(state.get('serp_results', []))}")
+    logger.info(f"   Current Route: {state.get('route', 'not set')}")
+    logger.info("="*50)
+    
+    # Check if route is already forced (e.g. by NEGOTIATE button click)
+    if state.get("route") == "path_b":
+        logger.info("⏩ Revisor: Route FORCED to path_b (User clicked NEGOTIATE button)")
+        return {
+            "route": "path_b",
+            "show_all": state.get("show_all", False),
+            "current_step": "revisor",
+            "messages": state["messages"] + [AIMessage(content="🤖 Revisor: Starting negotiation as requested.")]
+        }
+
+    # NEW DESIGN: ALWAYS go PATH A first to show results
+    # User will click NEGOTIATE button to enter PATH B
+    logger.info("✅ Revisor: Going PATH A (Show results first, user can click NEGOTIATE later)")
     
     # Get data from checkpoint memory
     user_query = state.get("user_query", "")
@@ -83,7 +101,8 @@ async def revisor_node(state: AgentState) -> dict:
     serp_results = state.get("serp_results", [])
     parsed_params = state.get("parsed_params", {})
     
-    llm = get_llm(temperature=0.3, use_key_2=True)  # Use API_KEY_2 for Revisor
+    # Determine if user wants ALL results or just the BEST one
+    llm = get_llm(temperature=0.3, use_key_2=True)
     structured_llm = llm.with_structured_output(PathDecision)
     
     system_prompt = """You are a decision-making agent for a place discovery system.
@@ -133,16 +152,18 @@ Decision: Which path should we follow?
     
     decision: PathDecision = structured_llm.invoke(messages)
     
-    logger.info(f"✅ Revisor Decision: {decision.path.upper()} | Show All: {decision.show_all}")
-    logger.info(f"💭 Reasoning: {decision.reasoning}")
+    # OVERRIDE: Always go PATH A, but respect show_all decision
+    logger.info(f"✅ Revisor Decision: PATH_A (forced) | Show All: {decision.show_all}")
+    logger.info(f"💭 LLM Reasoning: {decision.reasoning}")
     logger.info(f"📊 Confidence: {decision.confidence:.2f}")
+    logger.info(f"📝 Note: path_b only via NEGOTIATE button, not from query text")
     
     return {
-        "route": decision.path,  # Store decision in state
-        "show_all": decision.show_all,  # NEW: Store whether to show all results
+        "route": "path_a",  # ALWAYS path_a first - user clicks NEGOTIATE for path_b
+        "show_all": decision.show_all,  # Respect show_all decision from LLM
         "current_step": "revisor",
         "messages": state["messages"] + [
-            AIMessage(content=f"🤖 Revisor Analysis:\n- Path: {decision.path.upper()}\n- Show All Results: {decision.show_all}\n- Reasoning: {decision.reasoning}\n- Confidence: {decision.confidence:.0%}")
+            AIMessage(content=f"🤖 Revisor Analysis:\n- Showing results (click NEGOTIATE on any place to start negotiation)\n- Show All Results: {decision.show_all}\n- Analysis: {decision.reasoning}")
         ]
     }
 
@@ -256,74 +277,329 @@ async def simple_best_reviewed_node(state: AgentState) -> dict:
 
 
 # ==========================================
-# PATH B: NEGOTIATION WORKFLOW (Placeholder)
+# PATH B: NEGOTIATION WORKFLOW
 # ==========================================
 
 async def negotiation_path_node(state: AgentState) -> dict:
     """
-    PATH B: Negotiation Workflow (Under Construction)
+    PATH B: Negotiation Workflow Initialization
     
-    Future Implementation (STEP 6-9):
-    1. Extract phone numbers from SERPSTACK
-    2. Call Tavily API for deep research:
-       - Negotiation skills
-       - How others work at that place
-       - Minimum budget knowledge
-       - Pricing insights
-    3. Prepare negotiation strategy
-    4. HITL: User interacts with negotiation options
-    5. Final recommendation with pricing
-    
-    For now: Returns placeholder message
+    1. Identify target place (from recommendations set by /agent/negotiate/start)
+    2. Initialize negotiation state
+    3. Route to strategy formulation
     """
+    logger.info("="*60)
+    logger.info("🚀 PATH B: NEGOTIATION WORKFLOW STARTED")
+    logger.info("="*60)
     
-    logger.info("🚧 PATH B: Negotiation workflow (Under construction)")
-    
+    # Get target place from recommendations (set by /agent/negotiate/start endpoint)
+    recommendations = state.get("recommendations", [])
     serp_results = state.get("serp_results", [])
-    user_intent = state.get("user_intent", "")
     
-    # Extract phone numbers from SERPSTACK results
-    places_with_phones = [
-        place for place in serp_results 
-        if place.get("phone") and place.get("phone") != ""
-    ]
+    # Use recommendation if available, otherwise first serp result
+    if recommendations:
+        target_place = recommendations[0]
+        logger.info(f"📍 Target Place (from button click): {target_place.get('name')}")
+    elif serp_results:
+        target_place = serp_results[0]
+        logger.info(f"📍 Target Place (fallback to first): {target_place.get('name')}")
+    else:
+        target_place = {"name": "Unknown Place", "address": "Unknown"}
+        logger.warning("⚠️ No target place found!")
     
-    placeholder_text = f"""
-🚧 **NEGOTIATION WORKFLOW - UNDER CONSTRUCTION**
-
-Your request requires negotiation/pricing information.
-
-**Current Status:**
-- ✅ Found {len(serp_results)} places from SERPSTACK
-- ✅ {len(places_with_phones)} places have phone numbers
-- 🚧 Tavily API deep search - Coming soon!
-- 🚧 Negotiation strategy analysis - Coming soon!
-- 🚧 HITL interaction panel - Coming soon!
-
-**Next Steps (Will be implemented):**
-1. Use Tavily API to research:
-   - Negotiation skills for this type of place
-   - How others work at these locations
-   - Minimum budget insights
-   - Pricing patterns
-2. Prepare personalized negotiation strategy
-3. Show interactive options for user approval
-
-**For now:** Check back after PATH B implementation!
-"""
+    logger.info(f"   Phone: {target_place.get('phone', 'N/A')}")
+    logger.info(f"   Address: {target_place.get('address', 'N/A')}")
+    logger.info(f"   Target Price: {state.get('target_price', 'Not specified')}")
+    logger.info(f"   User Goal: {state.get('user_intent', 'Not specified')}")
+    
+    # Preserve existing history if available (e.g. when resuming)
+    existing_history = state.get("negotiation_history", [])
+    logger.info(f"📜 Existing negotiation history: {len(existing_history)} messages")
     
     return {
-        "current_step": "negotiation_path",
-        "is_complete": True,
-        "recommendations": {
-            "status": "under_construction",
-            "places_count": len(serp_results),
-            "places_with_phones": len(places_with_phones)
-        },
+        "current_step": "negotiation_init",
+        "negotiation_active": True,
+        "negotiation_status": "ongoing",
+        "negotiation_history": existing_history if existing_history else [],
+        "shop_persona": "friendly but firm",
+        "recommendations": [target_place],
         "messages": state["messages"] + [
-            AIMessage(content=placeholder_text)
+            AIMessage(content=f"🎯 Starting negotiation for: {target_place.get('name', 'Unknown Place')}\n📞 Phone: {target_place.get('phone', 'N/A')}")
         ]
     }
+
+
+# ==========================================
+# STEP 8: STRATEGY NODE
+# ==========================================
+
+async def strategy_node(state: AgentState) -> dict:
+    """
+    Formulates a negotiation strategy and drafts a message.
+    Uses Llama 3.3 70B and leverages reviews for leverage.
+    """
+    logger.info("="*60)
+    logger.info("🧠 STRATEGY NODE: Formulating negotiation plan...")
+    logger.info("="*60)
+    
+    target_place = state.get("recommendations", [{}])[0]
+    user_intent = state.get("user_intent", "")
+    negotiation_history = state.get("negotiation_history", [])
+    target_price = state.get("target_price")
+    
+    logger.info(f"   Target: {target_place.get('name', 'Unknown')}")
+    logger.info(f"   User Goal: {user_intent}")
+    logger.info(f"   Target Price: {target_price}")
+    logger.info(f"   History Length: {len(negotiation_history)} messages")
+    
+    # Get reviews for context
+    reviews_data = target_place.get("reviews_data", [])
+    reviews_context = "\n".join(reviews_data) if reviews_data else "No specific reviews available."
+    
+    logger.info(f"   Reviews for leverage: {len(reviews_data)} reviews")
+    
+    # Use Llama 3.3 (via Groq)
+    llm = get_llm(temperature=0.6)
+    
+    system_prompt = f"""You are a skilled negotiator acting on behalf of a user.
+Target Place: {target_place.get('name')}
+Address: {target_place.get('address')}
+User Goal: {user_intent}
+Target Price: {target_price if target_price else "Get the best deal possible"}
+
+Reviews Context:
+{reviews_context}
+
+Your Strategy:
+1. Analyze the negotiation history.
+2. Use the reviews as leverage (e.g., if reviews mention "crowded", ask for a discount; if "great equipment", acknowledge value but push for price).
+3. Be persuasive, professional, but firm.
+4. Draft the NEXT message to send to the shopkeeper via SMS.
+5. Keep the message concise (under 160 chars preferred, max 2 sentences).
+"""
+
+    history_text = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in negotiation_history])
+    
+    user_prompt = f"""
+Negotiation History:
+{history_text if history_text else "No history yet (Start of conversation)"}
+
+Draft the next message.
+"""
+
+    class StrategyOutput(BaseModel):
+        thought_process: str = Field(description="Your reasoning, including how you used reviews")
+        draft_message: str = Field(description="The exact SMS message to send")
+
+    structured_llm = llm.with_structured_output(StrategyOutput)
+    strategy = structured_llm.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt)
+    ])
+    
+    logger.info(f"📝 Draft Message: \"{strategy.draft_message}\"")
+    logger.info(f"💭 Thought Process: {strategy.thought_process[:100]}...")
+    
+    return {
+        "current_step": "strategy",
+        "planned_message": strategy.draft_message,
+        "messages": state["messages"] + [
+            AIMessage(content=f"📝 Strategy: {strategy.thought_process}\n\n💬 Draft Message: \"{strategy.draft_message}\"")
+        ]
+    }
+
+
+# ==========================================
+# STEP 9: HUMAN REVIEW NODE (HITL)
+# ==========================================
+
+async def human_review_node(state: AgentState) -> dict:
+    """
+    Executes the approved message sending via MessagingService.
+    """
+    logger.info("="*60)
+    logger.info("⏸️ HUMAN REVIEW NODE")
+    logger.info("="*60)
+    logger.info(f"   Human Approved: {state.get('human_approved', False)}")
+    logger.info(f"   Planned Message: {state.get('planned_message', 'N/A')}")
+    
+    # Check if approved
+    if state.get("human_approved"):
+        logger.info("✅ APPROVED by User - Sending SMS...")
+        
+        planned_msg = state.get("planned_message")
+        target_place = state.get("recommendations", [{}])[0]
+        place_phone = target_place.get("phone", "") if isinstance(target_place, dict) else ""
+        place_name = target_place.get("name", "Unknown Place") if isinstance(target_place, dict) else "Unknown Place"
+
+        # Normalize phone numbers to keep digits (and leading +)
+        def normalize_phone(num: str) -> str:
+            if not num:
+                return ""
+            num = num.strip()
+            if num.startswith("+"):
+                return "+" + re.sub(r"[^0-9]", "", num)
+            return re.sub(r"[^0-9]", "", num)
+        
+        # Update history
+        new_history_entry = {"role": "agent", "content": planned_msg}
+        
+        # Send Real SMS via MessagingService
+        from app.messaging.service import MessagingService
+        from app.config import settings
+        import re
+        
+        # Prefer the shop's phone from SerpStack; fallback to configured agent recipient
+        target_number = normalize_phone(place_phone) or normalize_phone(settings.default_target_number) or normalize_phone(settings.twilio_target_number)
+
+        if not target_number:
+            log_msg = "❌ No target phone available (missing SerpStack phone and default recipient)."
+            logger.error(log_msg)
+            return {
+                "current_step": "human_review",
+                "messages": state["messages"] + [AIMessage(content=log_msg)],
+                "human_approved": False
+            }
+        
+        logger.info("="*40)
+        logger.info("📱 SENDING SMS")
+        logger.info(f"   To: {target_number}")
+        logger.info(f"   Message: {planned_msg}")
+        logger.info("="*40)
+        
+        sms_sent = MessagingService.send_message(target_number, planned_msg)
+        
+        if sms_sent:
+            log_msg = f"✅ SMS SENT to {place_name} ({target_number}): \"{planned_msg}\""
+            logger.info(log_msg)
+        else:
+            log_msg = f"❌ FAILED to send SMS to {place_name} ({target_number}). Check logs."
+            logger.error(log_msg)
+
+        return {
+            "current_step": "human_review",
+            "negotiation_history": state["negotiation_history"] + [new_history_entry],
+            "human_approved": False, # Reset for next turn
+            "messages": state["messages"] + [AIMessage(content=log_msg)]
+        }
+    else:
+        # This path is taken when the graph resumes but approval wasn't explicitly set to True
+        # or if we are just entering the node to pause.
+        logger.info("⏳ Waiting for human approval...")
+        return {"current_step": "human_review"}
+
+
+# ==========================================
+# STEP 10: SHOP SIMULATION NODE
+# ==========================================
+
+async def shop_simulation_node(state: AgentState) -> dict:
+    """
+    Simulates the shopkeeper's response.
+    """
+    logger.info("🎭 Shop Simulation Node: Generating response...")
+    
+    negotiation_history = state.get("negotiation_history", [])
+    target_place = state.get("recommendations", [{}])[0]
+    persona = state.get("shop_persona", "friendly")
+    
+    # Get the last message from agent
+    last_agent_msg = negotiation_history[-1]["content"] if negotiation_history else ""
+    
+    llm = get_llm(temperature=0.6)
+    
+    system_prompt = f"""You are a shopkeeper at {target_place.get('name')}.
+Location: {target_place.get('address')}
+Persona: {persona}
+
+Your goal: Maximize profit but don't lose the customer if the offer is reasonable.
+Current Market Rates (Assumed): Gyms ~2000-5000/month.
+
+Respond to the customer's query. Be realistic.
+"""
+
+    user_prompt = f"Customer says: \"{last_agent_msg}\""
+    
+    response = llm.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt)
+    ])
+    
+    shop_msg = response.content
+    
+    new_history_entry = {"role": "shop", "content": shop_msg}
+    
+    return {
+        "current_step": "shop_simulation",
+        "negotiation_history": state["negotiation_history"] + [new_history_entry],
+        "messages": state["messages"] + [
+            AIMessage(content=f"🏪 Shop: \"{shop_msg}\"")
+        ]
+    }
+
+
+# ==========================================
+# STEP 11: NEGOTIATION MANAGER NODE
+# ==========================================
+
+async def negotiation_manager_node(state: AgentState) -> dict:
+    """
+    Decides whether to continue negotiating, accept deal, or walk away.
+    Also handles the 'Wait for Reply' state.
+    """
+    logger.info("⚖️ Negotiation Manager: Evaluating status...")
+    
+    negotiation_history = state.get("negotiation_history", [])
+    
+    # If history is empty, we are just starting -> Go to strategy
+    if not negotiation_history:
+        return {
+            "current_step": "negotiation_manager",
+            "negotiation_status": "continue"
+        }
+        
+    last_msg = negotiation_history[-1]
+    
+    # If last message was from US (agent), we need to WAIT for a reply.
+    if last_msg["role"] == "agent":
+        logger.info("⏳ Last message was from Agent. Waiting for reply...")
+        # In a real async graph, we might return a special status or just END.
+        # Returning "end" here effectively pauses the graph until we resume it with a new message.
+        return {
+            "current_step": "negotiation_manager",
+            "negotiation_status": "end", # End this run, wait for external trigger
+            "messages": state["messages"] + [AIMessage(content="⏳ Waiting for reply from shopkeeper...")]
+        }
+    
+    # If last message was from SHOP (reply received), we analyze and continue
+    if last_msg["role"] == "shop":
+        logger.info("📩 Reply received from Shop. Analyzing...")
+        
+        # Analyze if we should continue or stop
+        last_shop_msg = last_msg["content"]
+        llm = get_llm(temperature=0.1)
+        
+        class ManagerDecision(BaseModel):
+            status: Literal["continue", "success", "failed"] = Field(description="Status of negotiation")
+            reasoning: str = Field(description="Why this status?")
+            
+        structured_llm = llm.with_structured_output(ManagerDecision)
+        
+        decision = structured_llm.invoke([
+            SystemMessage(content="Analyze the negotiation status. Did we reach a deal? Did they reject us? Should we keep trying?"),
+            HumanMessage(content=f"Last Shop Message: \"{last_shop_msg}\"")
+        ])
+        
+        return {
+            "current_step": "negotiation_manager",
+            "negotiation_status": decision.status,
+            "messages": state["messages"] + [
+                AIMessage(content=f"⚖️ Status: {decision.status.upper()} ({decision.reasoning})")
+            ]
+        }
+        
+    return {"negotiation_status": "continue"}
+
 
 
 # ==========================================
@@ -465,12 +741,25 @@ Who is the winner?
         
         if not winner:
             winner = recommendations[0] # Fallback to first
+        
+        # Safely extract rating value
+        winner_rating = winner.get('rating')
+        if isinstance(winner_rating, dict):
+            winner_rating = winner_rating.get('value') or winner_rating.get('rating') or 'N/A'
+        winner_rating = winner_rating or 'N/A'
+        
+        # Safely extract reviews count
+        reviews_count = winner.get('reviews_count', 0)
+        try:
+            reviews_count = int(reviews_count) if reviews_count else 0
+        except (ValueError, TypeError):
+            reviews_count = 0
             
         # Format the final output
         result_text = f"""
 🏆 **WINNER SELECTED:** {winner.get('name')}
 
-⭐ **Rating:** {winner.get('rating')}/5.0 ({winner.get('reviews_count')} reviews)
+⭐ **Rating:** {winner_rating}/5.0 ({reviews_count:,} reviews)
 📍 **Address:** {winner.get('address')}
 
 **Why it won:**

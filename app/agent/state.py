@@ -41,6 +41,15 @@ class AgentState(TypedDict):
     refined_analysis: list[dict]  # After reflexion
     iteration: int  # Reflexion loop counter
     
+    # Negotiation State
+    negotiation_active: bool
+    negotiation_history: list[dict]  # Chat history with shop: [{"role": "agent", "content": "..."}]
+    negotiation_status: str  # "ongoing", "success", "failed", "rejected"
+    planned_message: str  # Draft message for HITL review
+    shop_persona: str  # Simulated shopkeeper personality (e.g. "stubborn", "friendly")
+    target_price: float | None # User's desired price
+    negotiation_start_time: int | None  # Unix timestamp when negotiation started (for filtering old messages)
+    
     # Final Output
     recommendations: list[dict] | None
     is_complete: bool

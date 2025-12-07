@@ -28,6 +28,27 @@ class Settings(BaseSettings):
     
     # SerpStack API
     serp_api_url: str = "http://api.serpstack.com/search"
+
+    # Default SMS routing (gateway-agnostic)
+    default_sender_number: str = ""  # Optional; depends on provider
+    default_target_number: str = ""  # Fallback recipient if place has no phone (E.164)
+
+    # (Legacy Twilio fields retained for compatibility; unused when messaging_provider=smsmobileapi)
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_messaging_service_sid: str = ""
+    twilio_phone_number: str = ""
+    twilio_target_number: str = ""
+
+    # Messaging Settings
+    messaging_provider: Literal["twilio", "smsmobileapi"] = "smsmobileapi"
+    smsmobileapi_key: str = ""  # Set in .env file
+
+    # LangSmith Settings (Optional)
+    langchain_tracing_v2: str = "true"
+    langchain_endpoint: str = "https://api.smith.langchain.com"
+    langchain_api_key: str = ""  # Set in .env file (optional)
+    langchain_project: str = "PlaceDiscoverAgent"
     
     class Config:
         env_file = ".env"

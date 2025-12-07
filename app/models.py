@@ -66,6 +66,15 @@ class HumanApprovalRequest(BaseModel):
     approved: bool = Field(default=True)
     modified_results: Optional[list[SearchResult]] = None
     user_notes: Optional[str] = None
+    edited_message: Optional[str] = None # For negotiation message editing
+
+
+class NegotiationStartRequest(BaseModel):
+    """Request to start negotiation for a specific place"""
+    thread_id: str
+    place_name: str
+    target_price: Optional[float] = None
+    initial_message: Optional[str] = None
 
 
 class RouteDecision(BaseModel):

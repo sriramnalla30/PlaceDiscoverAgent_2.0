@@ -4,6 +4,9 @@ A local business discovery and negotiation agent built with LangGraph and FastAP
 
 ---
 
+## Video Demo: https://drive.google.com/file/d/1HZJYOx-oEaGraIHzRkI5JS-NOYnM-SDk/view?usp=drive_link
+
+
 ## Overview
 
 This agent helps you find local businesses, analyze their reviews, and negotiate deals via SMS. The workflow uses a reflection pattern where the system drafts messages, you review and approve them, and the agent learns from responses to continue the conversation.

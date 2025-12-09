@@ -6,6 +6,8 @@ A local business discovery and negotiation agent built with LangGraph and FastAP
 
 ## Video Demo: https://drive.google.com/file/d/1HZJYOx-oEaGraIHzRkI5JS-NOYnM-SDk/view?usp=drive_link
 
+## Concepts Explained: https://drive.google.com/file/d/1piOMcCW5CnnaE6LSVltsSZVLI1VurMfT/view?usp=drive_link
+
 
 ## Overview
 

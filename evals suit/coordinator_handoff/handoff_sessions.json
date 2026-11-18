@@ -1,0 +1,82 @@
+{
+ "73ce5afea47448deab044b26513c49f5": {
+  "verdict": "fail",
+  "calls": 2,
+  "failed_calls": 1,
+  "ran_at": 1794904394.574258,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "v1"
+ },
+ "9bfa8cdce5654aca9b97fa6f0c57ee36\r": {
+  "verdict": "no scout call",
+  "calls": 0,
+  "failed_calls": 0,
+  "ran_at": 1794902849.780826,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "9037e06e"
+ },
+ "d416c3aa8b68426c9a6ce12e2379accc\r": {
+  "verdict": "no scout call",
+  "calls": 0,
+  "failed_calls": 0,
+  "ran_at": 1794902852.9200473,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "9037e06e"
+ },
+ "ba5cad8d696348baaf908eaefeda092d\r": {
+  "verdict": "no scout call",
+  "calls": 0,
+  "failed_calls": 0,
+  "ran_at": 1794902854.486601,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "9037e06e"
+ },
+ "516fd19dfc3b48538e5a459ea9670733": {
+  "verdict": "pass",
+  "calls": 2,
+  "failed_calls": 0,
+  "ran_at": 1794904400.847782,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "v1"
+ },
+ "9bfa8cdce5654aca9b97fa6f0c57ee36": {
+  "verdict": "fail",
+  "calls": 2,
+  "failed_calls": 1,
+  "ran_at": 1794904397.6740658,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "v1"
+ },
+ "d416c3aa8b68426c9a6ce12e2379accc": {
+  "verdict": "fail",
+  "calls": 3,
+  "failed_calls": 1,
+  "ran_at": 1794902895.9613955,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "9037e06e"
+ },
+ "ba5cad8d696348baaf908eaefeda092d": {
+  "verdict": "pass",
+  "calls": 1,
+  "failed_calls": 0,
+  "ran_at": 1794902898.0969238,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "9037e06e"
+ },
+ "77ce9d433dcc41b1999a58a0888b1078": {
+  "verdict": "pass",
+  "calls": 2,
+  "failed_calls": 0,
+  "ran_at": 1794906210.083148,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "v1"
+ },
+ "d558100ecc8d4d7e8f01e095c830fa72": {
+  "verdict": "pass",
+  "calls": 2,
+  "failed_calls": 0,
+  "ran_at": 1794906671.2470837,
+  "judge_model": "qwen/qwen3.8-27b",
+  "prompt": "v1"
+ }
+}

@@ -1,0 +1,55 @@
+/* Evals page: a card per eval, compact result chips in a table, details in a side drawer. Tokens come from dash.css. */
+main.wide{max-width:1240px}
+.evcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:22px 0 22px}
+.evcard{display:flex;flex-direction:column;gap:8px;text-align:left;padding:16px 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 10px 30px -22px rgba(51,65,85,.5);font:inherit;color:inherit}
+button.evcard{cursor:pointer}
+.evcard.on{border-color:var(--brand);box-shadow:0 0 0 3px var(--mint),0 10px 30px -22px rgba(51,65,85,.5)}
+.evpick{all:unset;display:flex;flex-direction:column;gap:6px;cursor:pointer;border-radius:10px}
+.evpick:focus-visible,.evcard:focus-visible,.colbtn:focus-visible,.chipbtn:focus-visible,.dclose:focus-visible{outline:3px solid var(--mint-bright);outline-offset:2px}
+.evcard h3{margin:0;font:600 19px/1.3 var(--serif);color:var(--ink)}
+.evcard .sub{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.evcard .tag{align-self:flex-start}
+.evnums{display:flex;flex-wrap:wrap;gap:4px 14px;font:12px var(--mono);color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.evnum b{font:600 14px var(--sans);color:var(--ink)}
+.evnum.pass b{color:var(--brand-deep)}.evnum.fail b{color:var(--bad)}.evnum.error b{color:var(--warn)}
+.evcard .linkbtn{align-self:flex-start;padding:0}
+.evbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.evbar .search{margin:0}
+.evcount{font:12px var(--mono);color:var(--muted)}
+.evbar+.filters{margin-top:12px}
+
+.evtable{min-width:0;width:100%}
+.evtable th.stick,.evtable td.stick{position:sticky;left:0;z-index:2;background:var(--card);min-width:420px;max-width:460px;box-shadow:1px 0 0 var(--line)}
+.evtable tr:hover td.stick{background:#fbfffd}
+.evtable th.evcol{padding:6px 8px;text-align:left}
+.colbtn{all:unset;display:flex;flex-direction:column;gap:1px;cursor:pointer;padding:5px 8px;border-radius:10px}
+.colbtn:hover{background:#f1f5f9}
+.evcol.on .colbtn{background:var(--mint)}
+.colbtn .cn{font:500 10.5px var(--mono);letter-spacing:.9px;color:var(--muted)}
+.colbtn .ct2{font:600 13px var(--sans);letter-spacing:0;text-transform:none;color:var(--ink)}
+.evcell{white-space:nowrap;min-width:150px}
+.evcell.dim{opacity:.45}
+.evcell>*{vertical-align:middle;margin-right:8px}
+.evcell .cnt{font:11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;background:#fff;display:inline-block;margin-right:0}
+.chipbtn{cursor:pointer;font:inherit;font-size:11px;font-family:var(--mono)}
+.chipbtn:hover{filter:brightness(.96);box-shadow:0 0 0 2px var(--mint-line)}
+.evcell .why{display:block;margin:4px 0 0;padding:0;font-size:12px}
+.evtable td .cid{color:var(--muted)}
+.evtable td .cid a{color:var(--brand-deep)}
+
+.scrim{position:fixed;inset:0;background:rgba(51,65,85,.28);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--card);border-left:1px solid var(--line);box-shadow:-18px 0 40px -24px rgba(51,65,85,.45);
+  z-index:50;overflow:auto;padding:22px 22px 32px;display:flex;flex-direction:column;gap:12px}
+.drawer[hidden],.scrim[hidden]{display:none}
+.dtop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.dh{margin:4px 0 2px;font:600 24px/1.2 var(--serif);color:var(--ink)}
+.dclose{font:400 26px/1 var(--sans);width:36px;height:36px;border-radius:50%;border:1px solid var(--faint);background:#fff;color:var(--ink);cursor:pointer}
+.dclose:hover{background:var(--mint);border-color:var(--mint-line)}
+.dbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dlabel{font:500 10.5px var(--mono);letter-spacing:.9px;color:var(--muted);text-transform:uppercase}
+.drawer .bubble.big{max-width:100%;align-self:stretch;font-size:14px}
+.mem summary{cursor:pointer;font:500 12.5px var(--sans);color:var(--brand-deep)}
+.mem pre{margin:6px 0 0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:12px/1.5 var(--mono);color:var(--ink);background:#f8fafc;border:1px solid var(--line);border-radius:10px}
+@media(max-width:700px){.evtable th.stick,.evtable td.stick{min-width:180px}.dh{font-size:21px}}
+@media(prefers-reduced-motion:no-preference){.drawer{animation:slidein .18s ease-out}@keyframes slidein{from{transform:translateX(24px);opacity:0}}}

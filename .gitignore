@@ -1,34 +1,17 @@
-# Environment
+# secrets and local environment
 .env
-*.env
-!.env.example
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
+.venv/
+# runtime data, scraper binary, caches
 data/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs
+bin/
+__pycache__/
+*.pyc
 *.log
-logs/
-
-# OS
-.DS_Store
-Thumbs.db
+node_modules/
+# the scraper lab's saved runs, and a script that holds a key
+SAMPLE_TEST_DASHBOARDS/history/
+SAMPLE_TEST_DASHBOARDS/google_decisions_api.py
+# tool folders
+.claude/
+.playwright-mcp/
+CLAUDE_TEM_STORAGE/

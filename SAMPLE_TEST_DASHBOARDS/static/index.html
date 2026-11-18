@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maps Scraper · Lab</title><link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script></head>
+<body>
+<header><a class="brand" href="/">m<span>◉</span> <b>maps scraper</b><em>SEARCH LAB</em></a>
+<nav class="headnav"><a class="graphbtn" href="/maps_graph">maps_graph</a><span class="local"><i></i> LOCAL WORKSPACE</span></nav></header>
+<main>
+<div class="intro"><div><div class="eyebrow">QUERY · SCRAPE · INSPECT</div><h1>Places, with their phone numbers.</h1><p>Type a list search and a location. The scraper reads Google Maps directly and returns up to 20 places with every attribute it found. No API key needed.</p></div><a class="doclink" href="https://github.com/gosom/google-maps-scraper" target="_blank" rel="noopener noreferrer">Scraper project ↗</a></div>
+
+<section class="panel request-panel"><div class="sectionhead"><h2>Build your request</h2><span class="tag" id="binary-status">Checking scraper…</span></div>
+<p class="hint">Fast mode needs a <b>query</b> and a <b>location pin</b>. Everything else is optional. One click makes one live scrape.</p>
+<div class="searchbar"><div class="query-input">
+<label for="query">Search query <span class="required">required</span></label><textarea id="query" rows="2" maxlength="200" placeholder="e.g. gyms in Koramangala Bangalore">gyms in Koramangala Bangalore</textarea>
+<div class="presets" id="presets" aria-label="Business type presets"></div></div>
+<div class="run-actions"><button id="run" class="primary">Run scrape <span>↗</span></button><p class="footnote">One click · one live scrape</p><div id="form-error" role="alert"></div></div></div>
+<div class="fieldgrid">
+<div><label for="area">Area preset</label><select id="area"></select><p class="fieldhelp">Fills the location pin below. For any other city, pick “Custom” and type its latitude and longitude. <b>The pin must be in the same city as your query.</b></p></div>
+<div><label for="lat">Latitude <span class="required">required</span></label><input id="lat" inputmode="decimal" value="12.9352"><p class="fieldhelp">Centre of the search, e.g. 12.9352.</p></div>
+<div><label for="lng">Longitude <span class="required">required</span></label><input id="lng" inputmode="decimal" value="77.6245"><p class="fieldhelp">e.g. 77.6245.</p></div>
+<div><label for="radius">Radius in metres</label><input id="radius" inputmode="numeric" placeholder="default 10000"><p class="fieldhelp">100–50000. Smaller radius means fewer, closer places. Over about 5 km the 20-place cap applies.</p></div>
+<div><label for="lang">Language</label><select id="lang"><option value="">English (default)</option><option value="hi">Hindi</option><option value="kn">Kannada</option><option value="ta">Tamil</option><option value="te">Telugu</option></select><p class="fieldhelp">Language of names and categories.</p></div>
+</div>
+<div class="previewrow"><span class="eyebrow">COMMAND THAT WILL RUN</span><pre id="cmd"></pre></div>
+</section>
+
+<div id="notice" class="notice">The scraper returns a <b>list search</b> only. A query that names one business, such as “Marvel Multispeciality Hospital”, comes back empty. Use “category in area city” instead.</div>
+<div id="metrics" class="metrics"></div>
+
+<section class="panel output"><div class="sectionhead"><div><div class="eyebrow">RESULT EXPLORER</div><h2 id="result-title">Your next scrape starts here</h2></div><div class="previewactions"><button id="export-csv" disabled>↓ CSV</button><button id="export-json" disabled>↓ JSON</button></div></div>
+<div class="tabs" role="tablist"><button role="tab" data-tab="places" aria-selected="true">Places</button><button role="tab" data-tab="phones" aria-selected="false">Phone check</button><button role="tab" data-tab="attrs" aria-selected="false">Attributes</button><button role="tab" data-tab="raw" aria-selected="false">Raw JSON</button><button role="tab" data-tab="history" aria-selected="false">Saved runs</button></div>
+<div id="places" class="tabbody"><div class="empty"><div class="emptyicon">⌕</div><h3>Make a little discovery.</h3><p>Pick a business type and an area, then run.<br>Places, phone numbers and every returned field will appear here.</p></div></div>
+<div id="phones" class="tabbody" hidden></div>
+<div id="attrs" class="tabbody" hidden></div>
+<div id="raw" class="tabbody" hidden><div class="previewactions"><button id="copy-raw">Copy JSON</button></div><pre id="raw-text">No run yet.</pre></div>
+<div id="history" class="tabbody" hidden><p class="hint">Every finished run is saved on this computer. Select one to restore its inputs and output.</p><p id="history-status" class="hint" role="status"></p><div id="history-list"></div><button id="history-more" hidden>Load older runs</button></div>
+</section>
+<footer>Maps Scraper Lab <span>Direct scraper output · phone kind and +91 form are derived by this dashboard</span></footer>
+</main></body></html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scout · Simulator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2318aa7e'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='white' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='1.8' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/dash.css"><script defer src="/dash.js"></script></head>
+<body>
+<nav class="pill" aria-label="Scout simulator">
+  <span class="brand"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#18aa7e"/><circle cx="16" cy="16" r="6" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="16" cy="16" r="1.8" fill="#fff"/></svg><b>Scout</b></span>
+  <span class="sep"></span>
+  <a class="navitem active" href="/">Test cases</a>
+  <a class="navitem" href="/runs">All runs</a>
+  <a class="navitem" href="/evals">Evals</a>
+  <span class="sep"></span>
+  <a class="navapp" href="__APP_URL__" target="_blank" rel="noopener">Open Scout app <span aria-hidden="true">↗</span></a>
+</nav>
+<main>
+  <header class="intro">
+    <div class="eyebrow">FAKE USER · REAL APP</div>
+    <h1>Test cases</h1>
+    <p>Each case is a fake person who types into the real Scout page, answers its questions, and is checked on what the scout agent decided. Press <b>Run</b> to open the page and watch it the way a real user sees it.</p>
+    <div class="status" id="status"><i></i><span>Checking the app under test…</span></div>
+  </header>
+  <section id="happy" class="group" aria-labelledby="h-happy"><div class="ghead"><div><h2 id="h-happy">Happy flow</h2><p>Business, area and city are all in the first message. the coordinator should not ask anything.</p></div></div><div class="cards"></div></section>
+  <section id="ambiguity" class="group" aria-labelledby="h-amb"><div class="ghead"><div><h2 id="h-amb">Ambiguity</h2><p>Something is missing or unclear. The scout agent has to ask, and finish once the fake user answers.</p></div></div><div class="cards"></div></section>
+  <section id="edge" class="group" aria-labelledby="h-edge"><div class="ghead"><div><h2 id="h-edge">Edge cases</h2><p>Messy and tricky messages: typos, other languages, long or pasted text, changed minds, half answers, injection and off-topic. Each card says which failure it hunts.</p></div></div><div class="cards"></div></section>
+</main>
+<footer>Scout simulator · the fake user drives an exact copy of the app's page · results are saved in this folder</footer>
+</body></html>

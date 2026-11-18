@@ -1,0 +1,317 @@
+{
+ "548708e76b5a": {
+  "label": "pass",
+  "note": "thats a very good ouptut fromthe scout agent",
+  "at": 1793773607.190976
+ },
+ "aeab4953e79c": {
+  "label": "pass",
+  "note": "good one",
+  "at": 1793773638.2327354
+ },
+ "95e69a178166": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773650.444642
+ },
+ "c31c12bee6dc": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773662.3935604
+ },
+ "f56d4ed9a2f6": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773684.417476
+ },
+ "560136771d81": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773693.8244467
+ },
+ "5a01170b0e46": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773706.2728837
+ },
+ "0d089288fc45": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773725.2512267
+ },
+ "0af54852034c": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773737.4579222
+ },
+ "3c8021cc4ad2": {
+  "label": "fail",
+  "note": "Very Bad restaurants is the bussiness_type and Bangalore",
+  "at": 1793773787.3779743
+ },
+ "521c3941482a": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773797.107031
+ },
+ "adbf116b2bde": {
+  "label": "pass",
+  "note": "Fail the query dint mention the cafes, if its in the memory of the above queries then its fine",
+  "at": 1793773832.750636
+ },
+ "a27187e8ef00": {
+  "label": "pass",
+  "note": "bad gym and gandhinagar are directly stated",
+  "at": 1793773853.857708
+ },
+ "b02c6824c73b": {
+  "label": "pass",
+  "note": "good",
+  "at": 1793773868.035555
+ },
+ "fb8db443f2dd": {
+  "label": "pass",
+  "note": "cafes is the type and area is Qzxvbnmlk and city is Vijayawada",
+  "at": 1793773933.1452847
+ },
+ "5edcd37a24d0": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939740.9801311
+ },
+ "f48c8a743193": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939757.6165266
+ },
+ "2fa5742745dd": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939773.512471
+ },
+ "d24507b3d85e": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939798.7449267
+ },
+ "3ffc8309b2bb": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939826.1241102
+ },
+ "2d74e8093f60": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939833.942734
+ },
+ "c5e4cf3872c2": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939849.5711236
+ },
+ "206fef4d98d4": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939858.9665952
+ },
+ "92deb4ced544": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939866.6618123
+ },
+ "0076c1bbec35": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939876.8170474
+ },
+ "efdb1352ae15": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939896.902722
+ },
+ "c7d9bd877908": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939932.6178446
+ },
+ "963b3e34e6b7": {
+  "label": "pass",
+  "note": "Good",
+  "at": 1793939987.7940736
+ },
+ "0ea7db27e9ea": {
+  "label": "pass",
+  "note": "",
+  "at": 1793939994.8317583
+ },
+ "d148f02a7a0f": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940000.4555712
+ },
+ "e5300cd09664": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940008.5260875
+ },
+ "24e99ec824a8": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940009.7511337
+ },
+ "459c84c38edf": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940012.751652
+ },
+ "061923b9f2a5": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940015.9710379
+ },
+ "a12f79cf82a0": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940019.7674694
+ },
+ "2c8e374cd1cf": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940028.525916
+ },
+ "408d8d445f45": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940034.3459487
+ },
+ "f0202d0f9196": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940039.5834334
+ },
+ "ee2202a1f567": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940049.3073778
+ },
+ "5debdadfdc72": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940070.2499206
+ },
+ "954e03a15c2c": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940077.637526
+ },
+ "207a1628390b": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940094.7140892
+ },
+ "8a564ec2d4a8": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940098.435057
+ },
+ "56ba0249d4f2": {
+  "label": "fail",
+  "note": "Forum Mall Koramangala",
+  "at": 1793940136.6188102
+ },
+ "88277c454223": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940147.3418374
+ },
+ "56d15b8cc6c5": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940150.5368161
+ },
+ "098391a85af2": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940153.6111588
+ },
+ "6aeaf7676be0": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940155.5830703
+ },
+ "83185089bc89": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940158.2928562
+ },
+ "08d55d19a89c": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940858.414351
+ },
+ "067f03280905": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940862.3056488
+ },
+ "42efe2028015": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940865.8027318
+ },
+ "42a4259b0238": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940867.274855
+ },
+ "2c35f24a5ecd": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940869.968255
+ },
+ "2fde03fb45df": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940878.8982775
+ },
+ "4ff19dd2093f": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940909.940662
+ },
+ "f18851d17498": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940915.3339715
+ },
+ "5e9dc420eb6d": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940918.2544558
+ },
+ "2cbc27ff562a": {
+  "label": "fail",
+  "note": "all are null here",
+  "at": 1793940946.027784
+ },
+ "8a80e640631e": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940971.789702
+ },
+ "bbf122f534f2": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940975.4038987
+ },
+ "afe7725888b1": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940989.4539902
+ },
+ "0cb538a2c23f": {
+  "label": "pass",
+  "note": "",
+  "at": 1793940994.8061097
+ }
+}

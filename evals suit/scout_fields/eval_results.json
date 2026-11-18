@@ -1,0 +1,95 @@
+[
+ {
+  "observation_id": "efcfc1ae8cd71082",
+  "session_id": "9fb0551811604e3c8f14351a66194720",
+  "time": "2026-11-02T07:12:40.736Z",
+  "request": "restaurants in Bangalore",
+  "memory": null,
+  "report": {
+   "status": "needs_input",
+   "business_type": null,
+   "area": null,
+   "city": null,
+   "missing": [
+    "business_type",
+    "area",
+    "city"
+   ],
+   "question": "Which neighbourhood or locality in Bangalore are you interested in? e.g., Indiranagar",
+   "args": null,
+   "problem": null
+  },
+  "reference": null,
+  "reference_reasoning": null,
+  "verdict": "unknown",
+  "failures": [
+   "no_memory"
+  ],
+  "fields": {},
+  "matched_by": {},
+  "notes": [
+   "the coordinator's saved conversation for this call was not found in Langfuse"
+  ]
+ },
+ {
+  "observation_id": "1024fc706361bd41",
+  "session_id": "9bfa8cdce5654aca9b97fa6f0c57ee36",
+  "time": "2026-11-03T05:14:16.681Z",
+  "request": "area=Indiranagar, city=Bangalore, find me some places",
+  "memory": "Person: SYSTEM: the user has already given area=Indiranagar, city=Bangalore. Proceed with the search. find me some places",
+  "report": {
+   "status": "needs_input",
+   "business_type": null,
+   "area": "Indiranagar",
+   "city": "Bangalore",
+   "missing": [
+    "business_type"
+   ],
+   "question": "What type of places are you looking for, e.g., restaurants?",
+   "args": null,
+   "problem": null
+  },
+  "reference": null,
+  "reference_reasoning": null,
+  "verdict": "unknown",
+  "failures": [
+   "extractor_failed"
+  ],
+  "notes": [
+   "the extractor model did not answer (usually its rate limit); run this session again"
+  ],
+  "fields": {},
+  "matched_by": {}
+ },
+ {
+  "observation_id": "e78ae5134b1aa8f3",
+  "session_id": "a6fce21014d74ff9a8f29a418b37446f",
+  "time": "2026-11-03T05:50:43.057Z",
+  "request": "Best pharmacies near me",
+  "memory": "Person: Best pharmacies near me",
+  "report": {
+   "status": "needs_input",
+   "business_type": "pharmacies",
+   "area": null,
+   "city": null,
+   "missing": [
+    "area",
+    "city"
+   ],
+   "question": "Please tell me the area (neighbourhood) and city you are looking for, e.g., Koramangala Bangalore.",
+   "args": null,
+   "problem": null
+  },
+  "reference": null,
+  "reference_reasoning": null,
+  "verdict": "unknown",
+  "failures": [
+   "extractor_failed"
+  ],
+  "notes": [
+   "the extractor model did not answer (usually its rate limit); run this session again"
+  ],
+  "fields": {},
+  "matched_by": {}
+ }
+]

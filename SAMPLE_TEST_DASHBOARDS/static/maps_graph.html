@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maps Scraper · Graph</title><link rel="stylesheet" href="/style.css">
+<style>
+.graphnav{display:flex;gap:8px;align-items:center}
+.flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.step{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fbfcfa;font-size:12px;line-height:1.6;position:relative}
+.step>b:first-child{display:block;font-size:10px;letter-spacing:1.4px;color:var(--green);margin-bottom:5px}
+.step code,.hint code,td code{background:#eef4ee;padding:1px 5px;border-radius:4px;font-size:11px}
+.step.derived{background:#fffaf0;border-color:#ecdcb4}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 0;font-size:11px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.graphwrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:20px;align-items:start;margin-top:14px}
+svg#graph{width:100%;height:auto;min-width:380px;display:block}
+svg#graph .edge{fill:none;stroke:#c9d6cb;stroke-width:1.5}
+svg#graph .node{cursor:pointer}
+svg#graph .node rect.box{fill:#fff;stroke-width:1.5;transition:fill .15s}
+svg#graph .node:hover rect.box{fill:#f3f8f1}
+svg#graph .node.sel rect.box{fill:#e7f2e4;stroke-width:2.8}
+svg#graph .node text{font:600 12px 'DM Sans',system-ui,sans-serif;fill:#15342e;pointer-events:none}
+svg#graph .node .sub{font:400 10px 'DM Sans',system-ui,sans-serif;fill:#6c7d76}
+svg#graph .root rect{fill:#12644d}svg#graph .root text{fill:#fff}svg#graph .root .sub{fill:#cfe6dc}
+.node:focus{outline:none}.node:focus-visible rect.box{stroke:#15342e;stroke-width:3}
+.detail h3{margin:0 0 4px;font-family:Manrope,system-ui,sans-serif;font-size:19px}
+.detail .kind{font-size:10px;letter-spacing:1.2px;font-weight:700}
+.detail .what{font-size:13px;margin:8px 0 12px}
+.fieldtable td:first-child{font-family:Consolas,monospace;font-size:11px;white-space:nowrap;color:var(--green)}
+.fieldtable td.ex{font-family:Consolas,monospace;font-size:11px;color:#4a5a54}
+.fieldtable tr.none td{color:#8a9a94}.fieldtable tr.none td:first-child{color:#8a9a94}
+.fillbar{display:inline-block;width:60px;height:7px;background:#eaf0e8;border-radius:4px;vertical-align:1px;margin-right:6px;overflow:hidden}.fillbar i{display:block;height:100%;background:#12644d}
+.fixed td:first-child,.inputs td:first-child{font-family:Consolas,monospace;font-size:11px;white-space:nowrap;color:var(--green)}
+.req{font-size:10px;font-weight:700}.req.y{color:#b3382a}.req.n{color:#6c7d76}
+@media(max-width:1000px){.graphwrap{grid-template-columns:1fr}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.flow{grid-template-columns:1fr}}
+</style></head>
+<body>
+<header><a class="brand" href="/">m<span>◉</span> <b>maps scraper</b><em>SEARCH LAB</em></a>
+<nav class="graphnav"><a class="navbtn" href="/">← Search lab</a><a class="navbtn active" href="/maps_graph" aria-current="page">maps_graph</a></nav></header>
+<main>
+<div class="intro"><div><div class="eyebrow">HOW IT WORKS</div><h1>From a query to a place record.</h1><p>What goes in, what happens in between, and every attribute that comes out. The coverage numbers on this page were measured on <b id="nrec"></b> real places from 40 queries across 5 Bangalore areas.</p></div></div>
+
+<section class="panel"><div class="sectionhead"><h2>The flow, step by step</h2><span class="tag">FAST MODE</span></div>
+<div class="flow">
+<div class="step"><b>1 · YOU ENTER</b>A <code>query</code> such as “gyms in Koramangala Bangalore”, plus a location pin (<code>lat</code>, <code>lng</code>). Optionally a radius and a language.</div>
+<div class="step"><b>2 · DASHBOARD SERVER</b>Checks your inputs, writes the query into a one-line file <code>q.txt</code>, and starts the scraper program on this computer. Only one scrape runs at a time.</div>
+<div class="step"><b>3 · SCRAPER BUILDS A REQUEST</b>It sends the same internal search request Google Maps itself uses: <code>maps.google.com/search</code> with <code>tbm=map</code>. Your pin and radius are encoded inside it. No browser window opens.</div>
+<div class="step"><b>4 · GOOGLE ANSWERS</b>It returns a raw list of up to 20 businesses, the same Business Profile data you see in the Maps side panel: name, address, phone, rating, hours.</div>
+<div class="step"><b>5 · SCRAPER PARSES</b>It reads the raw list and writes one JSON record per place, each with a fixed set of attributes. Nothing is guessed or written by an AI.</div>
+<div class="step derived"><b>6 · DASHBOARD ADDS 3 FIELDS</b>It adds <code>_phone_kind</code>, <code>_phone_e164</code> and <code>_phone_shared</code> to each place, then shows the table. These three are the dashboard's own, not Google's.</div>
+</div></section>
+
+<section class="panel"><div class="sectionhead"><h2>Inputs</h2><span class="tag">WHAT YOU CAN CHANGE</span></div>
+<div class="tablewrap" style="margin-top:12px"><table class="inputs"><thead><tr><th>Input</th><th>Required</th><th>What it does</th><th>What we measured</th></tr></thead><tbody>
+<tr><td>query</td><td><span class="req y">YES</span></td><td>The list search, written like you would type into Google Maps: category + area + city.</td><td>A query naming one business (“Marvel Multispeciality Hospital Koramangala”) returned <b>0 places</b>. Fast mode only reads list results.</td></tr>
+<tr><td>lat, lng</td><td><span class="req y">YES</span></td><td>The centre of the search. The scraper refuses to run in fast mode without them.</td><td>This is what keeps results in the right city. Without a pin, the older Serpstack test drifted to Mumbai and Hyderabad.</td></tr>
+<tr><td>radius</td><td><span class="req n">no</span></td><td>Search radius in metres around the pin (default 10,000).</td><td>1,000 m returned <b>11</b> places; 30,000 m returned 20 (the cap).</td></tr>
+<tr><td>lang</td><td><span class="req n">no</span></td><td>Language for names and categories, such as <code>hi</code> for Hindi.</td><td>Works: Hindi names came back in Devanagari.</td></tr>
+</tbody></table></div>
+<p class="hint" style="margin-top:14px"><b>Set by the dashboard, not by you:</b></p>
+<div class="tablewrap"><table class="fixed"><tbody>
+<tr><td>-fast-mode</td><td>The only mode that worked on 30 Oct 2026. The normal mode failed on all 3 test jobs with “unexpected page type”.</td></tr>
+<tr><td>-c 1</td><td>One scrape at a time, to be gentle with Google.</td></tr>
+<tr><td>-depth, -zoom</td><td>The scraper has these settings, but in fast mode they changed nothing: depth 1, 3 and 10 and zoom 13, 15 and 17 all returned the same 20 places.</td></tr>
+</tbody></table></div></section>
+
+<section class="panel"><div class="sectionhead"><div><div class="eyebrow">CLICK A BOX</div><h2>Output: the place record</h2></div></div>
+<div class="legend" id="legend"></div>
+<div class="graphwrap"><div style="overflow:auto"><svg id="graph" role="group" aria-label="Attribute groups of a place record"></svg></div><div class="detail" id="detail" aria-live="polite"></div></div></section>
+
+<section class="panel"><div class="sectionhead"><h2>Limits we measured</h2><span class="tag">READ BEFORE RELYING ON IT</span></div>
+<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Limit</th><th>Detail</th></tr></thead><tbody>
+<tr><td><b>20 places per query</b></td><td>Hard cap in fast mode. For more, run several queries (other categories or areas).</td></tr>
+<tr><td><b>List searches only</b></td><td>A query that names one place returns nothing, so you cannot look up one store's phone by name here.</td></tr>
+<tr><td><b>Beta mode</b></td><td>Fast mode is labelled beta by its authors, and the normal mode already stopped working on today's Google. It could break without notice.</td></tr>
+<tr><td><b>Tested from one place</b></td><td>160 queries, 0 failures, all from a home internet connection. Google blocks server addresses more readily, which is untested.</td></tr>
+<tr><td><b>Phone numbers</b></td><td>94% of places had one. About 22% looked like landlines or toll-free numbers, which cannot receive WhatsApp, and some numbers are shared head-office lines.</td></tr>
+<tr><td><b>Terms of service</b></td><td>The scraper's own README warns that scraping may violate site terms.</td></tr>
+</tbody></table></div></section>
+<footer>Maps Scraper Lab <span>Coverage measured on real scraper output · values trimmed for display</span></footer>
+</main>
+<script type="application/json" id="data">{"n": 778, "example": {"longitude": 77.62021399999999, "input_id": "n-bkareLH9zH4-EP2NuYoQQ", "link": "", "cid": "", "title": "Apollo Spectra Hospitals - Koramangala, Bengaluru", "categories": ["Hospital", "Gastroenterologist", "Obstetrician-gynecologist", "Nephrologist", "Ophthalmologist", "Orthopedic surgeon", "Proctologist", "Surgeon", "Urologist", "Vascular surgeon"], "category": "", "address": "Apollo Spectra Hospitals, 143, 1st Cross Rd, near Nagarjuna Hotel, KHB Colony, 5th Block, Koramangala, Bengaluru, Karnataka 560095", "open_hours": {"Friday": ["Open 24 hours"], "Monday": ["Open 24 hours"], "Saturday": ["Open 24 hours"], "Sunday": ["Open 24 hours"], "Thursday": ["Open 24 hours"], "Tuesday": ["Open 24 hours"], "Wednesday": ["Open 24 hours"]}, "popular_times": null, "web_site": "https://www.apollospectra.com/our-hospitals/bangalore/koramangala/multi-speciality-hospital-in-koramangala-bangalore/", "phone": "04069146071", "plus_code": "7J4VWJMC+G3", "review_count": 6651, "review_rating": 4.6, "reviews_per_rating": null, "latitude": 12.933874099999999, "longtitude": 77.62021399999999, "status": "", "description": "", "reviews_link": "", "thumbnail": "", "timezone": "Asia/Calcutta", "price_range": "", "data_id": "0x3bae145adad795fb:0xb56e7b5a1f59de3", "street_view_url": "", "place_id": "", "images": null, "reservations": null, "order_online": null, "menu": {"link": "", "source": ""}, "owner": {"id": "", "name": "", "link": ""}, "complete_address": {"borough": "", "street": "", "city": "", "postal_code": "", "state": "", "country": ""}, "credit_cards_accepted": null, "about": null, "user_reviews": null, "user_reviews_extended": null, "emails": null}, "fill": {"longitude": 778, "input_id": 778, "link": 0, "cid": 0, "title": 778, "categories": 778, "category": 0, "address": 778, "open_hours": 711, "popular_times": 0, "web_site": 576, "phone": 731, "plus_code": 778, "review_count": 775, "review_rating": 775, "reviews_per_rating": 0, "latitude": 778, "longtitude": 778, "status": 0, "description": 0, "reviews_link": 0, "thumbnail": 0, "timezone": 778, "price_range": 0, "data_id": 778, "street_view_url": 0, "place_id": 0, "images": 0, "reservations": 0, "order_online": 0, "menu": 0, "owner": 0, "complete_address": 0, "credit_cards_accepted": 0, "about": 0, "user_reviews": 0, "user_reviews_extended": 0, "emails": 0}}</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('data').textContent);
+const N = D.n, EX = D.example, FILL = D.fill;
+document.getElementById('nrec').textContent = N;
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+function h(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+function mk(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.append(e); return e; }
+const G = [
+ { key: 'Identity', color: '#12644d', what: 'Which business this is. Use title and categories for display, and data_id as the unique key to remove duplicates.', fields: [
+  ['title', 'Business name'], ['categories', 'List of Google categories. The first is the main one'], ['data_id', 'Google’s internal place key (two hex numbers). Unique per place'], ['input_id', 'Identifier of the query run. The same for every place from one query'],
+  ['category', 'Single main category. Empty in fast mode: use categories'], ['cid', 'Google customer id. Empty in fast mode'], ['place_id', 'Official Places API id. Empty in fast mode']] },
+ { key: 'Contact', color: '#3b6ea5', what: 'How to reach the business. The phone number is the field your agent needs.', fields: [
+  ['phone', 'Phone as Google lists it, with a leading 0 (e.g. 04069146071). Not in +91 form'], ['web_site', 'Website address, or a booking-widget link. Missing for about a quarter of places'], ['emails', 'Only filled by a separate website-scraping option. Empty in fast mode']] },
+ { key: 'Location', color: '#8a6d1f', what: 'Where it is. Coordinates let you map places or measure distance from the pin.', fields: [
+  ['address', 'Full street address as text'], ['latitude', 'Latitude'], ['longitude', 'Longitude'], ['longtitude', 'Same value as longitude. The scraper’s own misspelt duplicate'],
+  ['plus_code', 'Google Plus Code, a short location code'], ['timezone', 'Time zone name (Asia/Calcutta)'], ['complete_address', 'Address split into street, city, postal code. Empty in fast mode'],
+  ['street_view_url', 'Empty in fast mode'], ['link', 'Maps link to the place. Empty in fast mode']] },
+ { key: 'Quality', color: '#7a4f8f', what: 'How well rated the place is. Only the rating and the review count come back; review text does not.', fields: [
+  ['review_rating', 'Star rating, e.g. 4.6'], ['review_count', 'Number of reviews, e.g. 6651'], ['reviews_per_rating', 'Reviews per star level. Empty'], ['user_reviews', 'Review text. Empty in fast mode'], ['user_reviews_extended', 'Empty'],
+  ['reviews_link', 'Empty'], ['price_range', 'Price level. Empty'], ['status', 'Open / closed status. Empty'], ['description', 'Business description. Empty']] },
+ { key: 'Hours', color: '#c26a2c', what: 'Opening hours by day. Most places have it. Popular-times charts are not returned.', fields: [
+  ['open_hours', 'Object with one entry per weekday, e.g. {"Monday": ["Open 24 hours"]}'], ['popular_times', 'Busy-hours chart. Empty in fast mode']] },
+ { key: 'Not in fast mode', color: '#8b9a94', what: 'Attributes the scraper defines but leaves empty in fast mode. They exist in the output, so you will see them as empty values.', fields: [
+  ['thumbnail', 'Photo link'], ['images', 'Photos'], ['reservations', 'Reservation links'], ['order_online', 'Order links'], ['menu', 'Menu link'], ['owner', 'Owner profile'], ['credit_cards_accepted', 'Payment types'], ['about', 'Amenity tags']] },
+ { key: 'Added by dashboard', color: '#b3382a', what: 'Three fields this dashboard adds after the scrape. They are not from Google and not from the scraper. The kind is a guess from the number’s prefix.', derived: true, fields: [
+  ['_phone_kind', 'mobile, landline, toll-free or none. Only mobile can receive WhatsApp'], ['_phone_e164', 'Phone in international form for messaging, e.g. +919019522282'], ['_phone_shared', 'How many places in this run use the same number. Above 1 usually means a head-office line']] }
+];
+const assigned = new Set(G.filter(g => !g.derived).flatMap(g => g.fields.map(f => f[0])));
+const missing = Object.keys(EX).filter(k => !assigned.has(k));
+if (missing.length) G[5].fields.push(...missing.map(k => [k, 'Returned by the scraper']));
+const total = Object.keys(EX).length;
+G.forEach(g => { g.n = g.fields.length; });
+function fillOf(k) { return FILL[k] ?? 0; }
+function exVal(k) {
+  if (k === '_phone_kind') return '"landline"'; if (k === '_phone_e164') return '"+914069146071"'; if (k === '_phone_shared') return '1';
+  const v = EX[k]; if (v === undefined) return ''; if (v === null) return 'null';
+  if (typeof v === 'object') return Array.isArray(v) ? '[' + v.length + ' items]' : (Object.values(v).some(x => x && x.length !== 0) ? '{…}' : '{}');
+  const s = JSON.stringify(v); return s.length > 44 ? s.slice(0, 41) + '…"' : s;
+}
+const svg = $('#graph'), rowH = 54, padTop = 18, H = padTop * 2 + rowH * (G.length - 1) + 44, W = 440;
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+const rx = 8, rw = 118, cx = 190, cw = 240, rootY = H / 2;
+G.forEach((g, i) => { g.y = padTop + i * rowH; mk('path', { class: 'edge', d: `M${rx + rw},${rootY} C${rx + rw + 40},${rootY} ${cx - 40},${g.y + 22} ${cx},${g.y + 22}` }, svg); });
+const root = mk('g', { class: 'node root' }, svg); mk('rect', { x: rx, y: rootY - 32, width: rw, height: 64, rx: 9 }, root);
+mk('text', { x: rx + 12, y: rootY - 6 }, root).textContent = 'Place record'; mk('text', { x: rx + 12, y: rootY + 12, class: 'sub' }, root).textContent = total + ' attributes';
+const nodes = {};
+G.forEach(g => {
+  const n = mk('g', { class: 'node', tabindex: '0', role: 'button', 'aria-label': g.key + ', ' + g.n + ' attributes' }, svg);
+  mk('rect', { class: 'box', x: cx, y: g.y, width: cw, height: 44, rx: 9, stroke: g.color }, n); mk('rect', { x: cx, y: g.y, width: 6, height: 44, rx: 3, fill: g.color }, n);
+  mk('text', { x: cx + 18, y: g.y + 19 }, n).textContent = g.key; mk('text', { x: cx + 18, y: g.y + 34, class: 'sub' }, n).textContent = g.n + ' attributes';
+  n.addEventListener('click', () => select(g.key)); n.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(g.key); } });
+  nodes[g.key] = n;
+  const l = h('span'), i = h('i'); i.style.background = g.color; l.append(i, g.key); $('#legend').append(l);
+});
+function select(key) {
+  Object.entries(nodes).forEach(([k, n]) => n.classList.toggle('sel', k === key));
+  const g = G.find(x => x.key === key), d = $('#detail'); d.replaceChildren();
+  const kind = h('div', g.key.toUpperCase(), 'kind'); kind.style.color = g.color;
+  d.append(kind, h('h3', g.key), h('p', g.what, 'what'));
+  const wrap = h('div', undefined, 'tablewrap'), t = h('table', undefined, 'fieldtable'), head = h('tr');
+  ['Attribute', 'Meaning', g.derived ? 'Example' : `Filled (of ${N})`, 'Example'].slice(0, g.derived ? 3 : 4).forEach(x => head.append(h('th', x)));
+  const th = h('thead'); th.append(head); t.append(th); const tb = h('tbody');
+  g.fields.forEach(([k, meaning]) => {
+    const tr = h('tr'); const n = fillOf(k);
+    if (!g.derived && n === 0) tr.className = 'none';
+    tr.append(h('td', k), h('td', meaning));
+    if (!g.derived) { const f = h('td'), bar = h('span', undefined, 'fillbar'), i = h('i'); i.style.width = (100 * n / N) + '%'; bar.append(i); f.append(bar, document.createTextNode(n === 0 ? 'never' : n)); tr.append(f); }
+    tr.append(h('td', exVal(k), 'ex')); tb.append(tr);
+  });
+  t.append(tb); wrap.append(t); d.append(wrap);
+  if (!g.derived) { const det = h('details'); det.open = true; det.append(h('summary', 'Real values from one place (Apollo Spectra, Koramangala)'));
+    const sub = {}; g.fields.forEach(([k]) => { sub[k] = EX[k]; }); det.append(h('pre', JSON.stringify(sub, null, 2))); d.append(det); }
+}
+select('Contact');
+})();
+</script></body></html>
